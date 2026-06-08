@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import {
+  ReportCardTable,
+  ExamTable,
+  MockTable,
+} from "@/components/admin/GradeTables";
+import { StudentEditor } from "@/components/admin/StudentEditor";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -11,21 +17,79 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+function ymd(d: Date | null): string {
+  if (!d) return "";
+  const x = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, "0")}-${String(x.getUTCDate()).padStart(2, "0")}`;
+}
+
 export default async function StudentDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const student = await prisma.student.findUnique({
-    where: { id },
-    include: {
-      user: { select: { name: true } },
-      campus: { select: { name: true } },
-      siblings: true,
-    },
-  });
+  const [student, campuses] = await Promise.all([
+    prisma.student.findUnique({
+      where: { id },
+      include: {
+        user: { select: { name: true } },
+        campus: { select: { name: true } },
+        siblings: true,
+        reportCards: true,
+        exams: true,
+        mockTests: true,
+      },
+    }),
+    prisma.campus.findMany({ orderBy: { order: "asc" } }),
+  ]);
   if (!student) notFound();
+
+  const initial = {
+    id: student.id,
+    name: student.user.name,
+    kana: student.kana ?? "",
+    campusId: student.campusId ?? "",
+    grade: student.grade?.toString() ?? "",
+    school: student.school ?? "",
+    joinedAt: ymd(student.joinedAt),
+    aspire: student.aspire ?? "",
+    dream: student.dream ?? "",
+    club: student.club ?? "",
+    clubDays: student.clubDays ?? "",
+    lessons: student.lessons ?? "",
+    lessonDays: student.lessonDays ?? "",
+    subjects: student.subjects,
+    eikenLevel: student.eikenLevel ?? "",
+    kankenLevel: student.kankenLevel ?? "",
+    suikenLevel: student.suikenLevel ?? "",
+    guardian: student.guardian ?? "",
+    notes: student.notes ?? "",
+    reportCards: student.reportCards.map((r) => ({
+      term: r.term,
+      subject: r.subject,
+      grade: r.grade,
+    })),
+    exams: student.exams.map((e) => ({
+      term: e.term,
+      subject: e.subject,
+      score: e.score,
+    })),
+    mockTests: student.mockTests.map((m) => ({
+      term: m.term,
+      japanese: m.japanese,
+      math: m.math,
+      english: m.english,
+      science: m.science,
+      social: m.social,
+      fiveSubjectDev: m.fiveSubjectDev,
+    })),
+    siblings: student.siblings.map((sb) => ({
+      name: sb.name,
+      school: sb.school,
+      status: sb.status,
+    })),
+  };
 
   return (
     <div className="space-y-4">
@@ -34,7 +98,7 @@ export default async function StudentDetailPage({
       </Link>
 
       <div className="card">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-xl font-bold text-gray-800">
               {student.user.name}
@@ -59,6 +123,7 @@ export default async function StudentDetailPage({
               )}
             </div>
           </div>
+          <StudentEditor initial={initial} campuses={campuses} />
         </div>
 
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -108,8 +173,21 @@ export default async function StudentDetailPage({
         )}
       </div>
 
+      <div className="card">
+        <h3 className="mb-2 font-semibold text-gray-800">通知表</h3>
+        <ReportCardTable data={initial.reportCards} />
+      </div>
+      <div className="card">
+        <h3 className="mb-2 font-semibold text-gray-800">定期試験</h3>
+        <ExamTable data={initial.exams} />
+      </div>
+      <div className="card">
+        <h3 className="mb-2 font-semibold text-gray-800">模試</h3>
+        <MockTable data={initial.mockTests} />
+      </div>
+
       <div className="card text-sm text-gray-400">
-        通知表・定期試験・模試・面談記録・AIアドバイスは次のステップで追加します。
+        面談記録・AIアドバイスは次のステップで追加します。
       </div>
     </div>
   );
