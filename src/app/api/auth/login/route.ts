@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
 
 const schema = z.object({
-  loginId: z.string().min(1, "ログインIDを入力してください"),
+  identifier: z.string().min(1, "ログインIDまたはメールアドレスを入力してください"),
   password: z.string().min(1, "パスワードを入力してください"),
 });
 
@@ -19,11 +19,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const { loginId, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { loginId } });
+  const { identifier, password } = parsed.data;
+
+  // ログインID または メールアドレスで照合（生徒=ID / 先生=メール）
+  const user = await prisma.user.findFirst({
+    where: { OR: [{ loginId: identifier }, { email: identifier }] },
+  });
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return NextResponse.json(
-      { error: "ログインIDまたはパスワードが正しくありません" },
+      { error: "ログイン情報が正しくありません" },
       { status: 401 }
     );
   }
@@ -32,6 +36,7 @@ export async function POST(req: Request) {
     userId: user.id,
     loginId: user.loginId,
     name: user.name,
+    role: user.role,
   });
   return NextResponse.json({ ok: true });
 }

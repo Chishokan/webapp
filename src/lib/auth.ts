@@ -13,11 +13,18 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
+export type Role = "STUDENT" | "TEACHER" | "SUPER_ADMIN";
+
 export type SessionPayload = {
   userId: string;
   loginId: string;
   name: string;
+  role: Role;
 };
+
+export function isStaffRole(role: Role | undefined | null): boolean {
+  return role === "TEACHER" || role === "SUPER_ADMIN";
+}
 
 export async function createSession(payload: SessionPayload): Promise<void> {
   const token = await new SignJWT({ ...payload })
@@ -55,6 +62,7 @@ export async function getSession(): Promise<SessionPayload | null> {
       userId: payload.userId as string,
       loginId: payload.loginId as string,
       name: payload.name as string,
+      role: (payload.role as Role) ?? "STUDENT",
     };
   } catch {
     return null;
@@ -73,6 +81,7 @@ export async function getCurrentUser() {
       name: true,
       grade: true,
       campus: true,
+      role: true,
       createdAt: true,
     },
   });
@@ -88,9 +97,28 @@ export async function requireUserId(): Promise<string> {
   return session.userId;
 }
 
+/** 職員(teacher/super_admin)用: 権限がなければ例外を投げる。セッションを返す */
+export async function requireStaff(): Promise<SessionPayload> {
+  const session = await getSession();
+  if (!session) {
+    throw new UnauthorizedError();
+  }
+  if (!isStaffRole(session.role)) {
+    throw new ForbiddenError();
+  }
+  return session;
+}
+
 export class UnauthorizedError extends Error {
   constructor() {
     super("ログインが必要です");
     this.name = "UnauthorizedError";
+  }
+}
+
+export class ForbiddenError extends Error {
+  constructor() {
+    super("この操作を行う権限がありません");
+    this.name = "ForbiddenError";
   }
 }

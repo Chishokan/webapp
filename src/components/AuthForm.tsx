@@ -65,11 +65,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
           <div>
             <label className="label" htmlFor="loginId">
-              ログインID
+              {mode === "login" ? "ログインID または メールアドレス" : "ログインID"}
             </label>
             <input
               id="loginId"
-              name="loginId"
+              name={mode === "login" ? "identifier" : "loginId"}
               className="input"
               required
               autoCapitalize="none"
