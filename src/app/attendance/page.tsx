@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateTodaySession } from "@/lib/study-session";
+import { ZOOM_URL } from "@/lib/config";
 import { AttendanceButton } from "@/components/AttendanceButton";
 
 export default async function AttendancePage() {
@@ -13,7 +14,7 @@ export default async function AttendancePage() {
     where: { userId_sessionId: { userId: user.id, sessionId: today.id } },
   });
 
-  const zoomUrl = today.zoomUrl || process.env.NEXT_PUBLIC_ZOOM_URL || "";
+  const zoomUrl = today.zoomUrl || ZOOM_URL;
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

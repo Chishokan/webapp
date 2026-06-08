@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { ZOOM_URL } from "./config";
 
 /** その日の0:00（ローカル）を返す */
 function startOfDay(d: Date): Date {
@@ -31,7 +32,7 @@ export async function getOrCreateTodaySession() {
     data: {
       title: formatTitle(now),
       date: startOfDay(now),
-      zoomUrl: process.env.NEXT_PUBLIC_ZOOM_URL || null,
+      zoomUrl: ZOOM_URL,
     },
   });
 }
