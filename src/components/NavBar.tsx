@@ -12,7 +12,11 @@ const links = [
   { href: "/chat", label: "AIチャット" },
 ];
 
-export function NavBar({ user }: { user: { name: string } | null }) {
+export function NavBar({
+  user,
+}: {
+  user: { name: string; isStaff: boolean } | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -50,6 +54,18 @@ export function NavBar({ user }: { user: { name: string } | null }) {
                 </Link>
               );
             })}
+            {user.isStaff && (
+              <Link
+                href="/admin"
+                className={`hidden rounded-md px-3 py-1.5 font-medium sm:inline-block ${
+                  pathname.startsWith("/admin")
+                    ? "bg-brand-100 text-brand-700"
+                    : "text-brand-600 hover:bg-brand-50"
+                }`}
+              >
+                職員管理
+              </Link>
+            )}
             <button
               onClick={handleLogout}
               className="ml-2 rounded-md px-3 py-1.5 text-gray-500 hover:bg-gray-100"

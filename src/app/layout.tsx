@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isStaffRole } from "@/lib/auth";
 import { NavBar } from "@/components/NavBar";
 
 export const metadata: Metadata = {
@@ -18,7 +18,11 @@ export default async function RootLayout({
   return (
     <html lang="ja">
       <body className="min-h-screen">
-        <NavBar user={user ? { name: user.name } : null} />
+        <NavBar
+          user={
+            user ? { name: user.name, isStaff: isStaffRole(user.role) } : null
+          }
+        />
         <main className="mx-auto w-full max-w-4xl px-4 py-8">{children}</main>
       </body>
     </html>
