@@ -4,8 +4,11 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // マイグレーション用の直接接続（コネクションプーリング非経由）。
+  // Neon / Vercel Postgres では DATABASE_URL=プール用, DIRECT_URL=直接接続 を設定する。
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
