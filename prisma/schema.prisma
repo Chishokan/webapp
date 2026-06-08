@@ -1,0 +1,84 @@
+// おはよう勉強会 - データモデル
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // マイグレーション用の直接接続（コネクションプーリング非経由）。
+  // Neon / Vercel Postgres では DATABASE_URL=プール用, DIRECT_URL=直接接続 を設定する。
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  attendances  Attendance[]
+  reflections  Reflection[]
+  chatMessages ChatMessage[]
+}
+
+// 勉強会セッション（毎朝の開催回）
+model Session {
+  id        String   @id @default(cuid())
+  title     String
+  date      DateTime // 開催日
+  zoomUrl   String?
+  createdAt DateTime @default(now())
+
+  attendances Attendance[]
+  reflections Reflection[]
+}
+
+// 出席記録
+model Attendance {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String
+  joinedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+  @@index([userId])
+}
+
+// リフレクション（振り返り）
+model Reflection {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String?
+  // 今日学んだこと
+  learned   String
+  // よかった点 / 気づき
+  good      String?
+  // 次に向けて
+  next      String?
+  // 集中度などの自己評価 (1-5)
+  mood      Int?
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+// AIチャットの履歴
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
