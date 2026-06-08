@@ -54,6 +54,13 @@ export function CalendarView() {
     };
   }, [year, month]);
 
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
+
   function changeMonth(delta: number) {
     let m = month + delta;
     let y = year;
@@ -171,48 +178,59 @@ export function CalendarView() {
         {loading && <span className="text-gray-400">読み込み中...</span>}
       </div>
 
-      {/* 選択した日のリフレクション内容 */}
+      {/* 選択した日のリフレクション内容（モーダル） */}
       {selected && selectedReflections.length > 0 && (
-        <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-brand-700">
-              {formatLabel(selected)} のリフレクション
-            </h3>
-            <button
-              onClick={() => setSelected(null)}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              閉じる ✕
-            </button>
-          </div>
-          <ul className="space-y-3">
-            {selectedReflections.map((r, i) => (
-              <li
-                key={i}
-                className="rounded-lg bg-white p-3 text-sm text-gray-700"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setSelected(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-bold text-brand-700">
+                {formatLabel(selected)} のリフレクション
+              </h3>
+              <button
+                onClick={() => setSelected(null)}
+                className="rounded-md px-2 py-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="閉じる"
               >
-                {r.mood != null && (
-                  <p className="mb-1 text-gold-500">{"★".repeat(r.mood)}</p>
-                )}
-                <p>
-                  <span className="font-medium text-gray-500">学んだこと：</span>
-                  {r.learned}
-                </p>
-                {r.good && (
-                  <p className="mt-1">
-                    <span className="font-medium text-gray-500">良かった点：</span>
-                    {r.good}
+                ✕
+              </button>
+            </div>
+            <ul className="space-y-3">
+              {selectedReflections.map((r, i) => (
+                <li
+                  key={i}
+                  className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700"
+                >
+                  {r.mood != null && (
+                    <p className="mb-1 text-gold-500">{"★".repeat(r.mood)}</p>
+                  )}
+                  <p>
+                    <span className="font-medium text-gray-500">学んだこと：</span>
+                    {r.learned}
                   </p>
-                )}
-                {r.next && (
-                  <p className="mt-1">
-                    <span className="font-medium text-gray-500">次に向けて：</span>
-                    {r.next}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
+                  {r.good && (
+                    <p className="mt-1">
+                      <span className="font-medium text-gray-500">良かった点：</span>
+                      {r.good}
+                    </p>
+                  )}
+                  {r.next && (
+                    <p className="mt-1">
+                      <span className="font-medium text-gray-500">次に向けて：</span>
+                      {r.next}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
     </div>
