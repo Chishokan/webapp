@@ -14,15 +14,26 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   loginId      String   @unique
+  email        String?  @unique // 先生(teacher/super_admin)のログイン用。生徒は未設定
   name         String
   grade        String
   campus       String
+  role         Role     @default(STUDENT)
   passwordHash String
   createdAt    DateTime @default(now())
 
   attendances  Attendance[]
   reflections  Reflection[]
   chatMessages ChatMessage[]
+
+  studentProfile Student? // role=STUDENT のときのみ
+  teacherProfile Teacher? // role=TEACHER / SUPER_ADMIN のときのみ
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  SUPER_ADMIN
 }
 
 // 勉強会セッション（毎朝の開催回）
@@ -83,4 +94,182 @@ model ChatMessage {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// =====================================================================
+// 塾 学習・面談記録（職員機能）
+// =====================================================================
+
+// 校舎マスタ
+model Campus {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  students Student[]
+}
+
+// 先生のプロフィール（User と 1:1）
+model Teacher {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String?
+}
+
+// 塾生としての詳細情報（User と 1:1）
+model Student {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kana       String?
+  campusId   String?
+  campus     Campus? @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  grade      Int? // 学年（1/2/3）
+  school     String? // 学校名
+  joinedAt   DateTime? // 入塾日
+  aspire     String? // 志望校
+  dream      String? // 将来の夢
+  club       String? // 部活動
+  clubDays   String? // 部活実施日
+  lessons    String? // 習い事
+  lessonDays String? // 習い事の日
+  subjects   String[] // 受講科目 ["国","数","英"]
+  eikenLevel String?
+  kankenLevel String?
+  suikenLevel String?
+  guardian   String? // 保護者情報
+  notes      String? // 特記事項
+
+  // 退塾管理（論理削除）
+  status   StudentStatus @default(ACTIVE)
+  quitDate DateTime?
+
+  siblings    Sibling[]
+  reportCards ReportCard[]
+  exams       ExamScore[]
+  mockTests   MockTest[]
+  interviews  Interview[]
+  adviceLogs  AdviceLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([campusId])
+  @@index([status])
+}
+
+enum StudentStatus {
+  ACTIVE
+  WITHDRAWN // 退塾
+}
+
+// 兄弟生
+model Sibling {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name      String
+  school    String?
+  status    String? // 在籍状況
+
+  @@index([studentId])
+}
+
+// 通知表（10教科×期）
+model ReportCard {
+  id        String     @id @default(cuid())
+  studentId String
+  student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term      ReportTerm
+  subject   String // "国語","数学",...,"家庭科"
+  grade     Int // 1〜5
+
+  @@unique([studentId, term, subject])
+}
+
+enum ReportTerm {
+  PREV_T3 // 前年3学期
+  GOAL_T1 // 1学期目標
+  T1
+  T2
+  T3
+}
+
+// 定期試験
+model ExamScore {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term      ExamTerm
+  subject   String // "国語","数学","英語","理科","社会"
+  score     Int
+
+  @@unique([studentId, term, subject])
+}
+
+enum ExamTerm {
+  PREV_T3
+  T1
+  T2
+  T3
+  GOAL // 目標点
+}
+
+// 模試
+model MockTest {
+  id             String   @id @default(cuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term           MockTerm
+  japanese       Float?
+  math           Float?
+  english        Float?
+  science        Float?
+  social         Float?
+  fiveSubjectDev Float? // 5科偏差値
+
+  @@unique([studentId, term])
+}
+
+enum MockTerm {
+  APR // 4月実判
+  JUL // 7月県一斉
+  AUG // 8月実判
+  OCT // 10月県一斉
+  JAN // 1月実判
+}
+
+// 面談記録（履歴蓄積）
+model Interview {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      String // 年なし表記もあり得るため文字列
+  byTeacher String // 担当者
+  memo      String
+  createdAt DateTime @default(now())
+  createdBy String // 記録した先生のメール
+
+  @@index([studentId, createdAt])
+}
+
+// AIアドバイス履歴（全件保存）
+model AdviceLog {
+  id        String       @id @default(cuid())
+  studentId String
+  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  advice    String
+  source    AdviceSource
+  createdAt DateTime     @default(now())
+  createdBy String? // 職員側の場合、生成した先生のメール
+
+  @@index([studentId, createdAt])
+}
+
+enum AdviceSource {
+  TEACHER_PANEL // 職員側で生成
+  STUDENT_APP // 生徒側で生成
 }
