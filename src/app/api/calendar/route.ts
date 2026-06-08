@@ -22,18 +22,37 @@ export async function GET(req: Request) {
       }),
       prisma.reflection.findMany({
         where: { userId, createdAt: { gte: start, lt: end } },
-        select: { createdAt: true },
+        orderBy: { createdAt: "asc" },
+        select: {
+          learned: true,
+          good: true,
+          next: true,
+          mood: true,
+          createdAt: true,
+        },
       }),
     ]);
 
     const attended = [
       ...new Set(attendances.map((a) => jstDateString(a.session.date))),
     ];
-    const reflected = [
-      ...new Set(reflections.map((r) => jstDateString(r.createdAt))),
-    ];
 
-    return NextResponse.json({ year, month, attended, reflected });
+    // 日付(JST) -> その日のリフレクション一覧
+    const reflectionsByDate: Record<
+      string,
+      { learned: string; good: string | null; next: string | null; mood: number | null }[]
+    > = {};
+    for (const r of reflections) {
+      const key = jstDateString(r.createdAt);
+      (reflectionsByDate[key] ??= []).push({
+        learned: r.learned,
+        good: r.good,
+        next: r.next,
+        mood: r.mood,
+      });
+    }
+
+    return NextResponse.json({ year, month, attended, reflectionsByDate });
   } catch (e) {
     if (e instanceof UnauthorizedError) {
       return NextResponse.json({ error: e.message }, { status: 401 });

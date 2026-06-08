@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
+type Reflection = {
+  learned: string;
+  good: string | null;
+  next: string | null;
+  mood: number | null;
+};
+
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -14,23 +21,32 @@ function todayJst(): string {
   return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
 }
 
+function formatLabel(ds: string): string {
+  const [, m, d] = ds.split("-");
+  return `${Number(m)}月${Number(d)}日`;
+}
+
 export function CalendarView() {
   const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const [year, setYear] = useState(jst.getUTCFullYear());
   const [month, setMonth] = useState(jst.getUTCMonth() + 1); // 1-12
   const [attended, setAttended] = useState<Set<string>>(new Set());
-  const [reflected, setReflected] = useState<Set<string>>(new Set());
+  const [reflectionsByDate, setReflectionsByDate] = useState<
+    Record<string, Reflection[]>
+  >({});
+  const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setSelected(null);
     fetch(`/api/calendar?year=${year}&month=${month}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
         setAttended(new Set(data.attended ?? []));
-        setReflected(new Set(data.reflected ?? []));
+        setReflectionsByDate(data.reflectionsByDate ?? {});
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -59,6 +75,8 @@ export function CalendarView() {
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const selectedReflections = selected ? reflectionsByDate[selected] ?? [] : [];
 
   return (
     <div className="card">
@@ -101,33 +119,43 @@ export function CalendarView() {
           if (d === null) return <div key={`e${i}`} />;
           const ds = `${year}-${pad(month)}-${pad(d)}`;
           const isAttended = attended.has(ds);
-          const isReflected = reflected.has(ds);
+          const dayReflections = reflectionsByDate[ds] ?? [];
+          const hasReflection = dayReflections.length > 0;
           const isToday = ds === today;
+          const isSelected = ds === selected;
+          const clickable = hasReflection;
           return (
-            <div
+            <button
               key={ds}
-              className={`relative flex aspect-square flex-col items-center justify-center rounded-lg text-sm ${
+              type="button"
+              disabled={!clickable}
+              onClick={() => clickable && setSelected(isSelected ? null : ds)}
+              className={`relative flex aspect-square w-full flex-col items-center justify-center rounded-lg text-sm ${
                 isAttended
                   ? "bg-brand-500 font-bold text-white"
                   : "text-gray-600"
-              } ${isToday && !isAttended ? "ring-2 ring-brand-300" : ""} ${
-                isToday && isAttended ? "ring-2 ring-gold-400" : ""
+              } ${clickable ? "cursor-pointer hover:opacity-90" : "cursor-default"} ${
+                isToday && !isAttended ? "ring-2 ring-brand-300" : ""
+              } ${isToday && isAttended ? "ring-2 ring-gold-400" : ""} ${
+                isSelected ? "outline outline-2 outline-offset-1 outline-brand-600" : ""
               }`}
               title={
-                [isAttended ? "出席" : "", isReflected ? "リフレクション" : ""]
-                  .filter(Boolean)
-                  .join(" / ") || undefined
+                hasReflection
+                  ? dayReflections[0].learned.slice(0, 40)
+                  : isAttended
+                    ? "出席"
+                    : undefined
               }
             >
               {d}
-              {isReflected && (
+              {hasReflection && (
                 <span
                   className={`absolute bottom-1 h-1.5 w-1.5 rounded-full ${
                     isAttended ? "bg-gold-300" : "bg-gold-400"
                   }`}
                 />
               )}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -138,10 +166,55 @@ export function CalendarView() {
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold-400" />{" "}
-          リフレクション
+          リフレクション（タップで表示）
         </span>
         {loading && <span className="text-gray-400">読み込み中...</span>}
       </div>
+
+      {/* 選択した日のリフレクション内容 */}
+      {selected && selectedReflections.length > 0 && (
+        <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-brand-700">
+              {formatLabel(selected)} のリフレクション
+            </h3>
+            <button
+              onClick={() => setSelected(null)}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              閉じる ✕
+            </button>
+          </div>
+          <ul className="space-y-3">
+            {selectedReflections.map((r, i) => (
+              <li
+                key={i}
+                className="rounded-lg bg-white p-3 text-sm text-gray-700"
+              >
+                {r.mood != null && (
+                  <p className="mb-1 text-gold-500">{"★".repeat(r.mood)}</p>
+                )}
+                <p>
+                  <span className="font-medium text-gray-500">学んだこと：</span>
+                  {r.learned}
+                </p>
+                {r.good && (
+                  <p className="mt-1">
+                    <span className="font-medium text-gray-500">良かった点：</span>
+                    {r.good}
+                  </p>
+                )}
+                {r.next && (
+                  <p className="mt-1">
+                    <span className="font-medium text-gray-500">次に向けて：</span>
+                    {r.next}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
