@@ -2,47 +2,65 @@
  * GASスプレッドシート → PostgreSQL データ移行（1回限りのバッチ）
  *
  * 使い方:
- *   1. GAS版スプレッドシートの各シートを CSV でエクスポートし、scripts/gas-export/ に配置:
- *        - students.csv   (Students シート / 1行1生徒)
- *        - interviews.csv (Interviews シート)
- *        - advice.csv     (Advice シート)
- *        - config.csv     (Config シート / 許可ユーザー)
+ *   1. 各シートを CSV でエクスポートし scripts/gas-export/ に配置:
+ *        - students.csv   (Students シート / 1行1生徒)  ← 実装済み
+ *        - interviews.csv (Interviews シート)            ← CSV受領後に対応
+ *        - advice.csv     (Advice シート)                ← CSV受領後に対応
+ *        - config.csv     (Config シート / 許可ユーザー)  ← 実装済み
  *   2. DATABASE_URL / DIRECT_URL を設定して実行:
+ *        npx tsx scripts/import-from-gas.ts --dry-run  # 解析のみ
  *        npx tsx scripts/import-from-gas.ts            # 取り込み実行
- *        npx tsx scripts/import-from-gas.ts --dry-run  # 解析のみ(DB書き込みなし)
  *
- * 注意:
- *   - 列の対応(ヘッダ名)は GAS版の実データに合わせて MAP 定義を調整してください。
- *   - 成績のカンマ区切りパースは GAS版のセル仕様に依存します。実データで要検証。
- *   - 既存ユーザーとの突合: students.csv に email 列があればメール一致で既存 User に Student を付与。
- *     なければ新規 User+Student を作成します。
+ *   ※ students.csv は loginId="gas_<元id>" で冪等。再実行で更新されます。
+ *   ※ CSVには個人情報が含まれるためリポジトリにコミットしないこと(.gitignore済)。
  */
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import {
+  PrismaClient,
+  type ReportTerm,
+  type ExamTerm,
+  type MockTerm,
+  type StudentStatus,
+} from "@prisma/client";
 
 const prisma = new PrismaClient();
 const DRY_RUN = process.argv.includes("--dry-run");
 const DIR = join(process.cwd(), "scripts", "gas-export");
+
+// 通知表10教科（CSVの並び順）/ 定期5教科
+const REPORT_SUBJECTS = [
+  "国語",
+  "数学",
+  "英語",
+  "理科",
+  "社会",
+  "美術",
+  "音楽",
+  "保健体育",
+  "技術",
+  "家庭科",
+];
+const EXAM_SUBJECTS = ["国語", "数学", "英語", "理科", "社会"];
 
 // --- 最小CSVパーサ（ダブルクオート対応） ---
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cur = "";
-  let inQuotes = false;
+  let q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
-    if (inQuotes) {
+    if (q) {
       if (c === '"') {
         if (text[i + 1] === '"') {
           cur += '"';
           i++;
-        } else inQuotes = false;
+        } else q = false;
       } else cur += c;
-    } else if (c === '"') inQuotes = true;
+    } else if (c === '"') q = true;
     else if (c === ",") {
       row.push(cur);
       cur = "";
@@ -51,9 +69,7 @@ function parseCsv(text: string): string[][] {
       rows.push(row);
       row = [];
       cur = "";
-    } else if (c === "\r") {
-      // skip
-    } else cur += c;
+    } else if (c !== "\r") cur += c;
   }
   if (cur !== "" || row.length) {
     row.push(cur);
@@ -72,121 +88,214 @@ function loadSheet(file: string): Record<string, string>[] {
   if (rows.length < 2) return [];
   const headers = rows[0].map((h) => h.trim());
   return rows.slice(1).map((r) => {
-    const obj: Record<string, string> = {};
-    headers.forEach((h, i) => (obj[h] = (r[i] ?? "").trim()));
-    return obj;
+    const o: Record<string, string> = {};
+    headers.forEach((h, i) => (o[h] = (r[i] ?? "").trim()));
+    return o;
   });
 }
 
-// ===== 列マッピング（実データのヘッダ名に合わせて調整してください）=====
-const COL = {
-  name: "名前",
-  kana: "フリガナ",
-  campus: "校舎",
-  grade: "学年",
-  school: "学校",
-  email: "メール", // 無ければ突合は名前ベースになる
-  aspire: "志望校",
-  dream: "将来の夢",
-  club: "部活",
-  school_status: "在籍状況",
-};
+function toInt(v: string): number | null {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : null;
+}
+function toFloat(v: string): number | null {
+  if (v.trim() === "") return null;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+function toDate(v: string): Date | null {
+  if (!v.trim()) return null;
+  const d = new Date(v.replace(/\./g, "/"));
+  return isNaN(d.getTime()) ? null : d;
+}
 
-async function ensureCampus(name: string) {
+const campusCache = new Map<string, string>();
+async function ensureCampusId(name: string): Promise<string | null> {
   if (!name) return null;
-  const existing = await prisma.campus.findUnique({ where: { name } });
-  if (existing) return existing;
-  if (DRY_RUN) return { id: "(dry)", name, order: 99 };
-  const max = await prisma.campus.aggregate({ _max: { order: true } });
-  return prisma.campus.create({
-    data: { name, order: (max._max.order ?? 0) + 1 },
-  });
+  if (campusCache.has(name)) return campusCache.get(name)!;
+  let c = await prisma.campus.findUnique({ where: { name } });
+  if (!c) {
+    const max = await prisma.campus.aggregate({ _max: { order: true } });
+    c = await prisma.campus.create({
+      data: { name, order: (max._max.order ?? 0) + 1 },
+    });
+  }
+  campusCache.set(name, c.id);
+  return c.id;
 }
 
 async function importStudents() {
   const rows = loadSheet("students.csv");
   console.log(`Students: ${rows.length}行`);
+  let n = 0;
+
   for (const r of rows) {
-    const name = r[COL.name];
+    const name = r["name"];
     if (!name) continue;
-    const campus = await ensureCampus(r[COL.campus] || "");
-    const email = r[COL.email] || null;
-    const gradeNum = parseInt(r[COL.grade], 10);
-    const grade = Number.isFinite(gradeNum) ? gradeNum : null;
+    const gasId = r["id"] || `${n}`;
+    const loginId = `gas_${gasId}`;
+    const grade = toInt(r["grade"]);
+    const subjects = (r["subjects"] || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const isWithdrawn = /退/.test(r["status"] || "");
 
     if (DRY_RUN) {
-      console.log(`  - ${name} (${r[COL.campus] || "校舎なし"} / 中${grade ?? "?"})`);
+      console.log(
+        `  - [${gasId}] ${name} / ${r["campus"]} / 中${grade ?? "?"} / 科目:${subjects.join("")}${isWithdrawn ? " (退塾)" : ""}`
+      );
+      n++;
       continue;
     }
 
-    // 既存ユーザー突合（メール一致）
-    const existingUser = email
-      ? await prisma.user.findUnique({ where: { email } })
-      : null;
+    const campusId = await ensureCampusId(r["campus"] || "");
 
-    if (existingUser) {
-      await prisma.student.upsert({
-        where: { userId: existingUser.id },
-        update: {
-          kana: r[COL.kana] || null,
-          campusId: campus?.id ?? null,
-          grade,
-          school: r[COL.school] || null,
-          aspire: r[COL.aspire] || null,
-          dream: r[COL.dream] || null,
-          club: r[COL.club] || null,
-        },
-        create: {
-          userId: existingUser.id,
-          kana: r[COL.kana] || null,
-          campusId: campus?.id ?? null,
-          grade,
-          school: r[COL.school] || null,
-        },
-      });
-    } else {
-      const passwordHash = await bcrypt.hash(randomBytes(12).toString("hex"), 10);
-      await prisma.user.create({
-        data: {
-          loginId: `s_${randomBytes(5).toString("hex")}`,
-          email,
-          name,
-          grade: grade ? `中${grade}` : "-",
-          campus: r[COL.campus] || "-",
-          role: "STUDENT",
-          passwordHash,
-          studentProfile: {
-            create: {
-              kana: r[COL.kana] || null,
-              campusId: campus?.id ?? null,
-              grade,
-              school: r[COL.school] || null,
-              aspire: r[COL.aspire] || null,
-              dream: r[COL.dream] || null,
-              club: r[COL.club] || null,
-            },
-          },
-        },
+    const studentData = {
+      kana: r["kana"] || null,
+      campusId,
+      grade,
+      school: r["school"] || null,
+      joinedAt: toDate(r["joined"]),
+      aspire: r["aspire"] || null,
+      dream: r["dream"] || null,
+      club: r["club"] || null,
+      clubDays: r["clubDays"] || null,
+      lessons: r["lessons"] || null,
+      lessonDays: r["lessonDays"] || null,
+      subjects,
+      eikenLevel: r["eikenLevel"] || null,
+      kankenLevel: r["kankenLevel"] || null,
+      suikenLevel: r["suikenLevel"] || null,
+      guardian: r["guardian"] || null,
+      notes: r["notes"] || null,
+      status: (isWithdrawn ? "WITHDRAWN" : "ACTIVE") as StudentStatus,
+      quitDate: toDate(r["quitDate"]),
+    };
+
+    const user = await prisma.user.upsert({
+      where: { loginId },
+      update: { name, grade: grade ? `中${grade}` : "-", campus: r["campus"] || "-" },
+      create: {
+        loginId,
+        name,
+        grade: grade ? `中${grade}` : "-",
+        campus: r["campus"] || "-",
+        passwordHash: await bcrypt.hash(randomBytes(12).toString("hex"), 10),
+      },
+    });
+    const student = await prisma.student.upsert({
+      where: { userId: user.id },
+      update: studentData,
+      create: { userId: user.id, ...studentData },
+    });
+
+    // --- 成績(通知表/定期試験/模試)・兄弟生を再構築 ---
+    const reportCards: {
+      studentId: string;
+      term: ReportTerm;
+      subject: string;
+      grade: number;
+    }[] = [];
+    const reportCols: [string, ReportTerm][] = [
+      ["report_prev", "PREV_T3"],
+      ["report_goal", "GOAL_T1"],
+      ["report_t1", "T1"],
+      ["report_t2", "T2"],
+      ["report_t3", "T3"],
+    ];
+    for (const [col, term] of reportCols) {
+      const vals = (r[col] || "").split(",");
+      REPORT_SUBJECTS.forEach((subj, i) => {
+        const g = toInt(vals[i] ?? "");
+        if (g != null && g >= 1 && g <= 5)
+          reportCards.push({ studentId: student.id, term, subject: subj, grade: g });
       });
     }
-    // TODO: 成績(通知表/定期試験/模試)のカンマ区切りパースは実データの列仕様確定後に追加
+
+    const exams: {
+      studentId: string;
+      term: ExamTerm;
+      subject: string;
+      score: number;
+    }[] = [];
+    const examCols: [string, ExamTerm][] = [
+      ["exam_prev", "PREV_T3"],
+      ["exam_t1", "T1"],
+      ["exam_t2", "T2"],
+      ["exam_t3", "T3"],
+      ["exam_goal", "GOAL"],
+    ];
+    for (const [col, term] of examCols) {
+      const vals = (r[col] || "").split(",");
+      EXAM_SUBJECTS.forEach((subj, i) => {
+        const sc = toInt(vals[i] ?? "");
+        if (sc != null) exams.push({ studentId: student.id, term, subject: subj, score: sc });
+      });
+    }
+
+    const mocks: {
+      studentId: string;
+      term: MockTerm;
+      japanese: number | null;
+      math: number | null;
+      english: number | null;
+      science: number | null;
+      social: number | null;
+      fiveSubjectDev: number | null;
+    }[] = [];
+    const mockCols: [string, MockTerm][] = [
+      ["mock_apr", "APR"],
+      ["mock_jul", "JUL"],
+      ["mock_aug", "AUG"],
+      ["mock_oct", "OCT"],
+      ["mock_jan", "JAN"],
+    ];
+    for (const [col, term] of mockCols) {
+      const v = (r[col] || "").split(",");
+      const rec = {
+        studentId: student.id,
+        term,
+        japanese: toFloat(v[0] ?? ""),
+        math: toFloat(v[1] ?? ""),
+        english: toFloat(v[2] ?? ""),
+        science: toFloat(v[3] ?? ""),
+        social: toFloat(v[4] ?? ""),
+        fiveSubjectDev: toFloat(v[5] ?? ""),
+      };
+      if (
+        rec.japanese != null ||
+        rec.math != null ||
+        rec.english != null ||
+        rec.science != null ||
+        rec.social != null ||
+        rec.fiveSubjectDev != null
+      )
+        mocks.push(rec);
+    }
+
+    const siblings = [r["sibling1"], r["sibling2"], r["sibling3"]]
+      .filter((s) => s && s.trim() !== "")
+      .map((s) => ({ studentId: student.id, name: s }));
+
+    await prisma.$transaction([
+      prisma.reportCard.deleteMany({ where: { studentId: student.id } }),
+      prisma.examScore.deleteMany({ where: { studentId: student.id } }),
+      prisma.mockTest.deleteMany({ where: { studentId: student.id } }),
+      prisma.sibling.deleteMany({ where: { studentId: student.id } }),
+      prisma.reportCard.createMany({ data: reportCards }),
+      prisma.examScore.createMany({ data: exams }),
+      prisma.mockTest.createMany({ data: mocks }),
+      prisma.sibling.createMany({ data: siblings }),
+    ]);
+    n++;
   }
-}
-
-async function importInterviews() {
-  const rows = loadSheet("interviews.csv");
-  console.log(`Interviews: ${rows.length}行`);
-  // TODO: 生徒名 → Student.id の対応付け（同名対策に要マッピング）。実データ確定後に実装。
-}
-
-async function importAdvice() {
-  const rows = loadSheet("advice.csv");
-  console.log(`Advice: ${rows.length}行`);
-  // TODO: 生徒名 → Student.id 対応付けのうえ AdviceLog(source=TEACHER_PANEL) を作成。
+  console.log(`  → ${n}名を処理`);
 }
 
 async function importConfig() {
   const rows = loadSheet("config.csv");
+  if (rows.length === 0) return;
   console.log(`Config(職員): ${rows.length}行`);
   for (const r of rows) {
     const email = r["メール"] || r["email"] || Object.values(r)[0];
@@ -197,7 +306,6 @@ async function importConfig() {
     }
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) continue;
-    const passwordHash = await bcrypt.hash(randomBytes(12).toString("hex"), 10);
     await prisma.user.create({
       data: {
         loginId: `t_${randomBytes(4).toString("hex")}`,
@@ -206,11 +314,21 @@ async function importConfig() {
         grade: "-",
         campus: "-",
         role: "TEACHER",
-        passwordHash,
+        passwordHash: await bcrypt.hash(randomBytes(12).toString("hex"), 10),
         teacherProfile: { create: {} },
       },
     });
   }
+}
+
+// interviews.csv / advice.csv はCSV受領後に対応（生徒名→Student.id の突合が必要）
+async function importInterviews() {
+  const rows = loadSheet("interviews.csv");
+  if (rows.length) console.log(`Interviews: ${rows.length}行 (未対応: CSV構造確認後に実装)`);
+}
+async function importAdvice() {
+  const rows = loadSheet("advice.csv");
+  if (rows.length) console.log(`Advice: ${rows.length}行 (未対応: CSV構造確認後に実装)`);
 }
 
 async function main() {
