@@ -11,6 +11,7 @@ import {
 import { StudentEditor } from "@/components/admin/StudentEditor";
 import { InterviewSection } from "@/components/admin/InterviewSection";
 import { StudentAdvicePanel } from "@/components/admin/StudentAdvicePanel";
+import { WithdrawButton } from "@/components/admin/WithdrawButton";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -136,7 +137,13 @@ export default async function StudentDetailPage({
               )}
             </div>
           </div>
-          <StudentEditor initial={initial} campuses={campuses} />
+          <div className="flex flex-col gap-2">
+            <StudentEditor initial={initial} campuses={campuses} />
+            <WithdrawButton
+              studentId={student.id}
+              withdrawn={student.status === "WITHDRAWN"}
+            />
+          </div>
         </div>
 
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">

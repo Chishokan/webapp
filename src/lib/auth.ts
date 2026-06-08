@@ -109,6 +109,18 @@ export async function requireStaff(): Promise<SessionPayload> {
   return session;
 }
 
+/** 最上級管理者専用 */
+export async function requireSuperAdmin(): Promise<SessionPayload> {
+  const session = await getSession();
+  if (!session) {
+    throw new UnauthorizedError();
+  }
+  if (session.role !== "SUPER_ADMIN") {
+    throw new ForbiddenError();
+  }
+  return session;
+}
+
 export class UnauthorizedError extends Error {
   constructor() {
     super("ログインが必要です");

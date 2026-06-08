@@ -15,7 +15,7 @@ export async function POST() {
       );
     }
 
-    const [attendances, reflections] = await Promise.all([
+    const [attendances, reflections, student] = await Promise.all([
       prisma.attendance.findMany({
         where: { userId },
         include: { session: true },
@@ -27,6 +27,13 @@ export async function POST() {
         orderBy: { createdAt: "desc" },
         take: 20,
       }),
+      // 塾生としてのプロフィール（あれば面談記録も参照）
+      prisma.student.findUnique({
+        where: { userId },
+        include: {
+          interviews: { orderBy: { createdAt: "desc" }, take: 10 },
+        },
+      }),
     ]);
 
     if (attendances.length === 0 && reflections.length === 0) {
@@ -36,7 +43,7 @@ export async function POST() {
       });
     }
 
-    const summary = [
+    const summaryParts = [
       `## 出席記録（直近${attendances.length}件）`,
       ...attendances.map(
         (a) =>
@@ -52,7 +59,17 @@ export async function POST() {
         if (r.mood) parts.push(`自己評価: ${r.mood}/5`);
         return `- [${date}] ${parts.join(" / ")}`;
       }),
-    ].join("\n");
+    ];
+
+    // 塾の面談記録を匿名化して追加（氏名・担当者名は含めない）
+    if (student && student.interviews.length > 0) {
+      summaryParts.push("", "## 塾での面談メモ（参考）");
+      for (const iv of student.interviews) {
+        summaryParts.push(`- [${iv.date}] ${iv.memo}`);
+      }
+    }
+
+    const summary = summaryParts.join("\n");
 
     const anthropic = getAnthropic();
     const message = await anthropic.messages.create({
@@ -77,6 +94,13 @@ export async function POST() {
       .filter((b) => b.type === "text")
       .map((b) => (b.type === "text" ? b.text : ""))
       .join("\n");
+
+    // 塾生の場合は AdviceLog に保存（職員側からも履歴を確認できるように）
+    if (student) {
+      await prisma.adviceLog.create({
+        data: { studentId: student.id, advice, source: "STUDENT_APP" },
+      });
+    }
 
     return NextResponse.json({ advice });
   } catch (e) {
