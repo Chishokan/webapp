@@ -35,6 +35,14 @@ export default async function HomePage() {
         <h1 className="text-2xl font-bold text-gray-800">
           {greeting()}、{user.name} さん ☀️
         </h1>
+        <p className="mt-1 text-sm text-gray-500">
+          <span className="mr-2 rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
+            {user.grade}
+          </span>
+          <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
+            {user.campus}
+          </span>
+        </p>
         <p className="mt-1 text-gray-500">{today.title}</p>
       </div>
 

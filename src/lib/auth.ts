@@ -15,7 +15,7 @@ function getSecret(): Uint8Array {
 
 export type SessionPayload = {
   userId: string;
-  email: string;
+  loginId: string;
   name: string;
 };
 
@@ -53,7 +53,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     });
     return {
       userId: payload.userId as string,
-      email: payload.email as string,
+      loginId: payload.loginId as string,
       name: payload.name as string,
     };
   } catch {
@@ -67,7 +67,14 @@ export async function getCurrentUser() {
   if (!session) return null;
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, email: true, name: true, createdAt: true },
+    select: {
+      id: true,
+      loginId: true,
+      name: true,
+      grade: true,
+      campus: true,
+      createdAt: true,
+    },
   });
   return user;
 }

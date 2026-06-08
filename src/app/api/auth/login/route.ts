@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
 
 const schema = z.object({
-  email: z.string().email("メールアドレスの形式が正しくありません"),
+  loginId: z.string().min(1, "ログインIDを入力してください"),
   password: z.string().min(1, "パスワードを入力してください"),
 });
 
@@ -19,15 +19,19 @@ export async function POST(req: Request) {
     );
   }
 
-  const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
+  const { loginId, password } = parsed.data;
+  const user = await prisma.user.findUnique({ where: { loginId } });
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return NextResponse.json(
-      { error: "メールアドレスまたはパスワードが正しくありません" },
+      { error: "ログインIDまたはパスワードが正しくありません" },
       { status: 401 }
     );
   }
 
-  await createSession({ userId: user.id, email: user.email, name: user.name });
+  await createSession({
+    userId: user.id,
+    loginId: user.loginId,
+    name: user.name,
+  });
   return NextResponse.json({ ok: true });
 }

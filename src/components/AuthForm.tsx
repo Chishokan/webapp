@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CAMPUSES, GRADES } from "@/lib/options";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
@@ -37,9 +38,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <div className="mx-auto max-w-md">
       <div className="card">
-        <h1 className="mb-6 text-2xl font-bold text-brand-700">
+        <h1 className="mb-1 text-2xl font-bold text-brand-700">
           {mode === "login" ? "ログイン" : "新規登録"}
         </h1>
+        <p className="mb-6 text-sm text-gray-500">
+          {mode === "login"
+            ? "ログインIDとパスワードを入力してください。"
+            : "はじめにプロフィールを登録してください。"}
+        </p>
 
         <form onSubmit={onSubmit} className="space-y-4">
           {mode === "register" && (
@@ -52,23 +58,68 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 name="name"
                 className="input"
                 required
-                placeholder="勉強 太郎"
+                placeholder="智翔 太郎"
               />
             </div>
           )}
+
           <div>
-            <label className="label" htmlFor="email">
-              メールアドレス
+            <label className="label" htmlFor="loginId">
+              ログインID
             </label>
             <input
-              id="email"
-              name="email"
-              type="email"
+              id="loginId"
+              name="loginId"
               className="input"
               required
-              placeholder="you@example.com"
+              autoCapitalize="none"
+              autoCorrect="off"
+              placeholder={mode === "register" ? "半角英数字（3文字以上）" : ""}
             />
           </div>
+
+          {mode === "register" && (
+            <>
+              <div>
+                <label className="label" htmlFor="grade">
+                  学年
+                </label>
+                <select id="grade" name="grade" className="input" required defaultValue="">
+                  <option value="" disabled>
+                    選択してください
+                  </option>
+                  {GRADES.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label" htmlFor="campus">
+                  所属校舎
+                </label>
+                <select
+                  id="campus"
+                  name="campus"
+                  className="input"
+                  required
+                  defaultValue=""
+                >
+                  <option value="" disabled>
+                    選択してください
+                  </option>
+                  {CAMPUSES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
           <div>
             <label className="label" htmlFor="password">
               パスワード

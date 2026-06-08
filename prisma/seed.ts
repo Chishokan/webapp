@@ -6,20 +6,26 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const testUsers = [
-  { name: "テスト一郎", email: "test1@ohayou.test", password: "testpass123" },
-  { name: "テスト二郎", email: "test2@ohayou.test", password: "testpass123" },
-  { name: "テスト三郎", email: "test3@ohayou.test", password: "testpass123" },
+  { name: "テスト一郎", loginId: "test1", grade: "中1", campus: "佐世保駅前校", password: "testpass123" },
+  { name: "テスト二郎", loginId: "test2", grade: "中3", campus: "日野校", password: "testpass123" },
+  { name: "テスト三郎", loginId: "test3", grade: "高2", campus: "大野校", password: "testpass123" },
 ];
 
 async function main() {
   for (const u of testUsers) {
     const passwordHash = await bcrypt.hash(u.password, 10);
     const user = await prisma.user.upsert({
-      where: { email: u.email },
-      update: { name: u.name, passwordHash },
-      create: { name: u.name, email: u.email, passwordHash },
+      where: { loginId: u.loginId },
+      update: { name: u.name, grade: u.grade, campus: u.campus, passwordHash },
+      create: {
+        name: u.name,
+        loginId: u.loginId,
+        grade: u.grade,
+        campus: u.campus,
+        passwordHash,
+      },
     });
-    console.log(`✓ ${user.email} (${user.name})`);
+    console.log(`✓ ${user.loginId} (${user.name})`);
   }
   console.log("テストアカウントの作成が完了しました。");
 }
