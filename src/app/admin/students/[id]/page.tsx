@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { isAiConfigured } from "@/lib/anthropic";
 import {
   ReportCardTable,
   ExamTable,
   MockTable,
 } from "@/components/admin/GradeTables";
 import { StudentEditor } from "@/components/admin/StudentEditor";
+import { InterviewSection } from "@/components/admin/InterviewSection";
+import { StudentAdvicePanel } from "@/components/admin/StudentAdvicePanel";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -29,7 +33,7 @@ export default async function StudentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [student, campuses] = await Promise.all([
+  const [student, campuses, interviews, latestAdvice, me] = await Promise.all([
     prisma.student.findUnique({
       where: { id },
       include: {
@@ -42,6 +46,15 @@ export default async function StudentDetailPage({
       },
     }),
     prisma.campus.findMany({ orderBy: { order: "asc" } }),
+    prisma.interview.findMany({
+      where: { studentId: id },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.adviceLog.findFirst({
+      where: { studentId: id, source: "TEACHER_PANEL" },
+      orderBy: { createdAt: "desc" },
+    }),
+    getCurrentUser(),
   ]);
   if (!student) notFound();
 
@@ -186,9 +199,31 @@ export default async function StudentDetailPage({
         <MockTable data={initial.mockTests} />
       </div>
 
-      <div className="card text-sm text-gray-400">
-        面談記録・AIアドバイスは次のステップで追加します。
-      </div>
+      <StudentAdvicePanel
+        studentId={student.id}
+        aiEnabled={isAiConfigured()}
+        initial={
+          latestAdvice
+            ? {
+                advice: latestAdvice.advice,
+                createdAt: latestAdvice.createdAt.toISOString(),
+                createdBy: latestAdvice.createdBy,
+              }
+            : null
+        }
+      />
+
+      <InterviewSection
+        studentId={student.id}
+        teacherName={me?.name ?? ""}
+        initial={interviews.map((iv) => ({
+          id: iv.id,
+          date: iv.date,
+          byTeacher: iv.byTeacher,
+          memo: iv.memo,
+          createdAt: iv.createdAt.toISOString(),
+        }))}
+      />
     </div>
   );
 }
