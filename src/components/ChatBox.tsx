@@ -7,8 +7,10 @@ type Message = { role: "user" | "assistant"; content: string };
 
 export function ChatBox({
   initialMessages,
+  heightClass = "h-[65vh]",
 }: {
   initialMessages: Message[];
+  heightClass?: string;
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
@@ -46,7 +48,7 @@ export function ChatBox({
   }
 
   return (
-    <div className="card flex h-[65vh] flex-col p-0">
+    <div className={`card flex ${heightClass} flex-col p-0`}>
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center text-center text-sm text-gray-400">

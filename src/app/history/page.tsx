@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdvicePanel } from "@/components/AdvicePanel";
+import { CalendarView } from "@/components/CalendarView";
 
 export default async function HistoryPage() {
   const user = await getCurrentUser();
@@ -29,6 +30,8 @@ export default async function HistoryPage() {
           これまでの参加とリフレクションの記録です。
         </p>
       </div>
+
+      <CalendarView />
 
       <AdvicePanel />
 

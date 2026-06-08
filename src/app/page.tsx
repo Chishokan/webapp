@@ -3,9 +3,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateTodaySession } from "@/lib/study-session";
+import { isAiConfigured } from "@/lib/anthropic";
+import { ChatBox } from "@/components/ChatBox";
 
 function greeting(): string {
-  const h = new Date().getHours();
+  // JST(UTC+9)の時刻で挨拶を切り替える
+  const h = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
   if (h < 10) return "おはようございます";
   if (h < 18) return "こんにちは";
   return "こんばんは";
@@ -17,17 +20,29 @@ export default async function HomePage() {
 
   const today = await getOrCreateTodaySession();
 
-  const [attendedToday, reflectedToday, totalAttendance, totalReflections] =
-    await Promise.all([
-      prisma.attendance.findUnique({
-        where: { userId_sessionId: { userId: user.id, sessionId: today.id } },
-      }),
-      prisma.reflection.findFirst({
-        where: { userId: user.id, sessionId: today.id },
-      }),
-      prisma.attendance.count({ where: { userId: user.id } }),
-      prisma.reflection.count({ where: { userId: user.id } }),
-    ]);
+  const [
+    attendedToday,
+    reflectedToday,
+    totalAttendance,
+    totalReflections,
+    chatHistory,
+  ] = await Promise.all([
+    prisma.attendance.findUnique({
+      where: { userId_sessionId: { userId: user.id, sessionId: today.id } },
+    }),
+    prisma.reflection.findFirst({
+      where: { userId: user.id, sessionId: today.id },
+    }),
+    prisma.attendance.count({ where: { userId: user.id } }),
+    prisma.reflection.count({ where: { userId: user.id } }),
+    prisma.chatMessage.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+      take: 30,
+    }),
+  ]);
+
+  const aiEnabled = isAiConfigured();
 
   return (
     <div className="space-y-6">
@@ -91,37 +106,50 @@ export default async function HomePage() {
         </div>
       </div>
 
+      {/* AIチャット（ダッシュボードに常設） */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800">④ AIチャット</h2>
+          <Link href="/chat" className="text-sm text-brand-600 hover:underline">
+            全画面で開く →
+          </Link>
+        </div>
+        {aiEnabled ? (
+          <ChatBox
+            initialMessages={chatHistory.map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }))}
+            heightClass="h-[420px]"
+          />
+        ) : (
+          <div className="card text-sm text-gray-500">
+            AIチャットを利用するには、環境変数{" "}
+            <code className="rounded bg-gray-100 px-1">ANTHROPIC_API_KEY</code>{" "}
+            の設定が必要です。
+          </div>
+        )}
+      </div>
+
       {/* 統計 */}
       <div className="grid grid-cols-2 gap-4">
         <div className="card text-center">
-          <p className="text-3xl font-bold text-brand-600">
-            {totalAttendance}
-          </p>
+          <p className="text-3xl font-bold text-brand-600">{totalAttendance}</p>
           <p className="text-sm text-gray-500">累計出席回数</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-brand-600">
-            {totalReflections}
-          </p>
+          <p className="text-3xl font-bold text-brand-600">{totalReflections}</p>
           <p className="text-sm text-gray-500">リフレクション数</p>
         </div>
       </div>
 
-      {/* 他機能への導線 */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Link href="/history" className="card hover:border-brand-300">
-          <h2 className="font-semibold text-gray-800">③ 学習履歴 & AIアドバイス</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            これまでの記録を振り返り、AIから学習アドバイスをもらいましょう。
-          </p>
-        </Link>
-        <Link href="/chat" className="card hover:border-brand-300">
-          <h2 className="font-semibold text-gray-800">④ AIチャット</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            勉強の質問や相談をAIにいつでも気軽に。
-          </p>
-        </Link>
-      </div>
+      {/* 学習履歴への導線 */}
+      <Link href="/history" className="card block hover:border-brand-300">
+        <h2 className="font-semibold text-gray-800">③ 学習履歴 & AIアドバイス</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          出席カレンダーやこれまでの記録を振り返り、AIから学習アドバイスをもらいましょう。
+        </p>
+      </Link>
     </div>
   );
 }

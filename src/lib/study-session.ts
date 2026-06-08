@@ -1,37 +1,22 @@
 import { prisma } from "./prisma";
 import { ZOOM_URL } from "./config";
+import { jstYmd, jstStartOfDay } from "./date";
 
-/** その日の0:00（ローカル）を返す */
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function endOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-}
-
-function formatTitle(d: Date): string {
-  return `${d.getMonth() + 1}月${d.getDate()}日のおはよう勉強会`;
-}
-
-/** 今日の勉強会セッションを取得（なければ作成する） */
+/** 今日(JST)の勉強会セッションを取得（なければ作成する） */
 export async function getOrCreateTodaySession() {
-  const now = new Date();
+  const { y, m, d } = jstYmd(new Date());
+  const start = jstStartOfDay(y, m, d);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+
   const existing = await prisma.session.findFirst({
-    where: {
-      date: { gte: startOfDay(now), lte: endOfDay(now) },
-    },
+    where: { date: { gte: start, lte: end } },
   });
   if (existing) return existing;
 
   return prisma.session.create({
     data: {
-      title: formatTitle(now),
-      date: startOfDay(now),
+      title: `${m}月${d}日のおはよう勉強会`,
+      date: start,
       zoomUrl: ZOOM_URL,
     },
   });
