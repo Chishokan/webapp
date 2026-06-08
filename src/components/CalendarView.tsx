@@ -137,7 +137,7 @@ export function CalendarView() {
               type="button"
               disabled={!clickable}
               onClick={() => clickable && setSelected(isSelected ? null : ds)}
-              className={`relative flex aspect-square w-full flex-col items-center justify-center rounded-lg text-sm ${
+              className={`relative flex min-h-[58px] w-full flex-col items-center justify-start gap-1 rounded-lg p-1 pt-1.5 text-sm sm:min-h-[80px] ${
                 isAttended
                   ? "bg-brand-500 font-bold text-white"
                   : "text-gray-600"
@@ -154,26 +154,33 @@ export function CalendarView() {
                     : undefined
               }
             >
-              {d}
+              <span>{d}</span>
               {hasReflection && (
                 <span
-                  className={`absolute bottom-1 h-1.5 w-1.5 rounded-full ${
-                    isAttended ? "bg-gold-300" : "bg-gold-400"
+                  className={`rounded px-1 py-0.5 text-[9px] font-medium leading-tight sm:text-[10px] ${
+                    isAttended
+                      ? "bg-white/90 text-brand-700"
+                      : "bg-gold-100 text-gold-700"
                   }`}
-                />
+                >
+                  <span className="hidden sm:inline">リフレクションを表示</span>
+                  <span className="sm:hidden">📝表示</span>
+                </span>
               )}
             </button>
           );
         })}
       </div>
 
-      <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
         <span className="flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded bg-brand-500" /> 出席
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold-400" />{" "}
-          リフレクション（タップで表示）
+          <span className="rounded bg-gold-100 px-1 py-0.5 text-[10px] font-medium text-gold-700">
+            リフレクションを表示
+          </span>{" "}
+          の日はタップで内容を確認できます
         </span>
         {loading && <span className="text-gray-400">読み込み中...</span>}
       </div>
