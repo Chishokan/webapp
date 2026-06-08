@@ -86,13 +86,13 @@ export default async function HomePage() {
       {/* 統計 */}
       <div className="grid grid-cols-2 gap-4">
         <div className="card text-center">
-          <p className="text-3xl font-bold text-morning-600">
+          <p className="text-3xl font-bold text-brand-600">
             {totalAttendance}
           </p>
           <p className="text-sm text-gray-500">累計出席回数</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-morning-600">
+          <p className="text-3xl font-bold text-brand-600">
             {totalReflections}
           </p>
           <p className="text-sm text-gray-500">リフレクション数</p>
@@ -101,13 +101,13 @@ export default async function HomePage() {
 
       {/* 他機能への導線 */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Link href="/history" className="card hover:border-morning-300">
+        <Link href="/history" className="card hover:border-brand-300">
           <h2 className="font-semibold text-gray-800">③ 学習履歴 & AIアドバイス</h2>
           <p className="mt-1 text-sm text-gray-500">
             これまでの記録を振り返り、AIから学習アドバイスをもらいましょう。
           </p>
         </Link>
-        <Link href="/chat" className="card hover:border-morning-300">
+        <Link href="/chat" className="card hover:border-brand-300">
           <h2 className="font-semibold text-gray-800">④ AIチャット</h2>
           <p className="mt-1 text-sm text-gray-500">
             勉強の質問や相談をAIにいつでも気軽に。

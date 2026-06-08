@@ -40,7 +40,7 @@ export function Markdown({ content }: { content: string }) {
     } else if (line.startsWith("## ")) {
       flushList(idx);
       blocks.push(
-        <h2 key={idx} className="mt-4 mb-2 text-lg font-bold text-morning-700">
+        <h2 key={idx} className="mt-4 mb-2 text-lg font-bold text-brand-700">
           {renderInline(line.slice(3))}
         </h2>
       );

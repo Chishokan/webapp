@@ -37,7 +37,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <div className="mx-auto max-w-md">
       <div className="card">
-        <h1 className="mb-6 text-2xl font-bold text-morning-700">
+        <h1 className="mb-6 text-2xl font-bold text-brand-700">
           {mode === "login" ? "ログイン" : "新規登録"}
         </h1>
 
@@ -102,14 +102,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           {mode === "login" ? (
             <>
               アカウントをお持ちでない方は{" "}
-              <Link href="/register" className="text-morning-600 underline">
+              <Link href="/register" className="text-brand-600 underline">
                 新規登録
               </Link>
             </>
           ) : (
             <>
               既にアカウントをお持ちの方は{" "}
-              <Link href="/login" className="text-morning-600 underline">
+              <Link href="/login" className="text-brand-600 underline">
                 ログイン
               </Link>
             </>

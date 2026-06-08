@@ -78,7 +78,7 @@ export default async function HistoryPage() {
                       {r.createdAt.toLocaleDateString("ja-JP")}
                     </span>
                     {r.mood && (
-                      <span className="text-morning-500">
+                      <span className="text-gold-500">
                         {"★".repeat(r.mood)}
                       </span>
                     )}

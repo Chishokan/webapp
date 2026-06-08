@@ -22,7 +22,7 @@ export function AdvicePanel() {
   }
 
   return (
-    <div className="card bg-gradient-to-br from-morning-50 to-white">
+    <div className="card bg-gradient-to-br from-brand-50 to-white">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold text-gray-800">🤖 AI学習アドバイス</h2>

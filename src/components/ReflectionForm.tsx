@@ -90,7 +90,7 @@ export function ReflectionForm() {
               type="button"
               onClick={() => setMood(n)}
               className={`h-10 w-10 rounded-full text-lg transition-colors ${
-                mood >= n ? "bg-morning-400 text-white" : "bg-gray-100 text-gray-400"
+                mood >= n ? "bg-gold-400 text-white" : "bg-gray-100 text-gray-400"
               }`}
               aria-label={`${n}点`}
             >

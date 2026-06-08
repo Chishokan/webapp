@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Logo } from "./Logo";
 
 const links = [
   { href: "/", label: "ホーム" },
@@ -22,10 +23,10 @@ export function NavBar({ user }: { user: { name: string } | null }) {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-orange-100 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-brand-100 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-lg font-bold text-morning-600">
-          ☀️ おはよう勉強会
+        <Link href="/" aria-label="ホーム">
+          <Logo />
         </Link>
 
         {user ? (
@@ -41,7 +42,7 @@ export function NavBar({ user }: { user: { name: string } | null }) {
                   href={l.href}
                   className={`hidden rounded-md px-3 py-1.5 sm:inline-block ${
                     active
-                      ? "bg-morning-100 text-morning-700"
+                      ? "bg-brand-100 text-brand-700"
                       : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
@@ -58,7 +59,7 @@ export function NavBar({ user }: { user: { name: string } | null }) {
           </nav>
         ) : (
           <nav className="flex items-center gap-2 text-sm">
-            <Link href="/login" className="text-gray-600 hover:text-morning-600">
+            <Link href="/login" className="text-gray-600 hover:text-brand-600">
               ログイン
             </Link>
             <Link href="/register" className="btn-primary text-sm">
