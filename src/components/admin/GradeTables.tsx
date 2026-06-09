@@ -21,9 +21,18 @@ type MockTest = {
   fiveSubjectDev: number | null;
 };
 
-const th = "border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 whitespace-nowrap";
+// 科目の短縮表示（横並びヘッダ用）
+const REPORT_SHORT = ["国", "数", "英", "理", "社", "美", "音", "保", "技", "家"];
+const EXAM_SHORT = ["国", "数", "英", "理", "社"];
+const MOCK_SHORT = ["国", "数", "英", "理", "社"];
+
+const th =
+  "border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 whitespace-nowrap";
+const tdLabel =
+  "border border-gray-200 bg-gray-50 px-2 py-1 text-left text-xs text-gray-600 whitespace-nowrap";
 const td = "border border-gray-200 px-2 py-1 text-center text-sm text-gray-800";
 
+// 通知表（行=時期 / 列=10教科 + 平均）
 export function ReportCardTable({ data }: { data: ReportCard[] }) {
   const map = new Map(data.map((d) => [`${d.term}|${d.subject}`, d.grade]));
   return (
@@ -31,44 +40,41 @@ export function ReportCardTable({ data }: { data: ReportCard[] }) {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className={th}>教科</th>
-            {REPORT_TERMS.map((t) => (
-              <th key={t.key} className={th}>
-                {t.label}
+            <th className={th}>時期</th>
+            {REPORT_SHORT.map((s) => (
+              <th key={s} className={th}>
+                {s}
               </th>
             ))}
+            <th className={th}>平均</th>
           </tr>
         </thead>
         <tbody>
-          {REPORT_SUBJECTS.map((subj) => (
-            <tr key={subj}>
-              <td className={`${td} bg-gray-50 text-left`}>{subj}</td>
-              {REPORT_TERMS.map((t) => (
-                <td key={t.key} className={td}>
-                  {map.get(`${t.key}|${subj}`) ?? ""}
-                </td>
-              ))}
-            </tr>
-          ))}
-          <tr>
-            <td className={`${td} bg-brand-50 text-left font-medium`}>平均</td>
-            {REPORT_TERMS.map((t) => {
-              const vals = REPORT_SUBJECTS.map((s) => map.get(`${t.key}|${s}`)).filter(
-                (v): v is number => typeof v === "number"
-              );
-              return (
-                <td key={t.key} className={`${td} bg-brand-50 font-medium`}>
+          {REPORT_TERMS.map((t) => {
+            const vals = REPORT_SUBJECTS.map((s) => map.get(`${t.key}|${s}`)).filter(
+              (v): v is number => typeof v === "number"
+            );
+            return (
+              <tr key={t.key}>
+                <td className={tdLabel}>{t.label}</td>
+                {REPORT_SUBJECTS.map((s) => (
+                  <td key={s} className={td}>
+                    {map.get(`${t.key}|${s}`) ?? ""}
+                  </td>
+                ))}
+                <td className={`${td} bg-brand-50 font-medium`}>
                   {average(vals) ?? ""}
                 </td>
-              );
-            })}
-          </tr>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
+// 定期試験（行=時期 / 列=5教科 + 合計）
 export function ExamTable({ data }: { data: ExamScore[] }) {
   const map = new Map(data.map((d) => [`${d.term}|${d.subject}`, d.score]));
   return (
@@ -76,44 +82,39 @@ export function ExamTable({ data }: { data: ExamScore[] }) {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className={th}>教科</th>
-            {EXAM_TERMS.map((t) => (
-              <th key={t.key} className={th}>
-                {t.label}
+            <th className={th}>時期</th>
+            {EXAM_SHORT.map((s) => (
+              <th key={s} className={th}>
+                {s}
               </th>
             ))}
+            <th className={th}>合計</th>
           </tr>
         </thead>
         <tbody>
-          {EXAM_SUBJECTS.map((subj) => (
-            <tr key={subj}>
-              <td className={`${td} bg-gray-50 text-left`}>{subj}</td>
-              {EXAM_TERMS.map((t) => (
-                <td key={t.key} className={td}>
-                  {map.get(`${t.key}|${subj}`) ?? ""}
-                </td>
-              ))}
-            </tr>
-          ))}
-          <tr>
-            <td className={`${td} bg-brand-50 text-left font-medium`}>合計</td>
-            {EXAM_TERMS.map((t) => {
-              const vals = EXAM_SUBJECTS.map((s) => map.get(`${t.key}|${s}`)).filter(
-                (v): v is number => typeof v === "number"
-              );
-              return (
-                <td key={t.key} className={`${td} bg-brand-50 font-medium`}>
-                  {sum(vals) ?? ""}
-                </td>
-              );
-            })}
-          </tr>
+          {EXAM_TERMS.map((t) => {
+            const vals = EXAM_SUBJECTS.map((s) => map.get(`${t.key}|${s}`)).filter(
+              (v): v is number => typeof v === "number"
+            );
+            return (
+              <tr key={t.key}>
+                <td className={tdLabel}>{t.label}</td>
+                {EXAM_SUBJECTS.map((s) => (
+                  <td key={s} className={td}>
+                    {map.get(`${t.key}|${s}`) ?? ""}
+                  </td>
+                ))}
+                <td className={`${td} bg-brand-50 font-medium`}>{sum(vals) ?? ""}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
+// 模試（行=時期 / 列=5教科 + 5科偏差値）
 export function MockTable({ data }: { data: MockTest[] }) {
   const map = new Map(data.map((d) => [d.term, d]));
   return (
@@ -121,40 +122,35 @@ export function MockTable({ data }: { data: MockTest[] }) {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className={th}>教科</th>
-            {MOCK_TERMS.map((t) => (
-              <th key={t.key} className={th}>
-                {t.label}
+            <th className={th}>時期</th>
+            {MOCK_SHORT.map((s) => (
+              <th key={s} className={th}>
+                {s}
               </th>
             ))}
+            <th className={th}>5科偏差</th>
           </tr>
         </thead>
         <tbody>
-          {MOCK_SUBJECTS.map((subj) => (
-            <tr key={subj.key}>
-              <td className={`${td} bg-gray-50 text-left`}>{subj.label}</td>
-              {MOCK_TERMS.map((t) => {
-                const rec = map.get(t.key);
-                const v = rec ? (rec[subj.key] as number | null) : null;
-                return (
-                  <td key={t.key} className={td}>
-                    {v ?? ""}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-          <tr>
-            <td className={`${td} bg-brand-50 text-left font-medium`}>5科偏差値</td>
-            {MOCK_TERMS.map((t) => {
-              const rec = map.get(t.key);
-              return (
-                <td key={t.key} className={`${td} bg-brand-50 font-medium`}>
+          {MOCK_TERMS.map((t) => {
+            const rec = map.get(t.key);
+            return (
+              <tr key={t.key}>
+                <td className={tdLabel}>{t.label}</td>
+                {MOCK_SUBJECTS.map((s) => {
+                  const v = rec ? (rec[s.key] as number | null) : null;
+                  return (
+                    <td key={s.key} className={td}>
+                      {v ?? ""}
+                    </td>
+                  );
+                })}
+                <td className={`${td} bg-brand-50 font-medium`}>
                   {rec?.fiveSubjectDev ?? ""}
                 </td>
-              );
-            })}
-          </tr>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

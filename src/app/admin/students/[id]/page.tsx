@@ -194,12 +194,12 @@ export default async function StudentDetailPage({
       </div>
 
       <div className="card">
-        <h3 className="mb-2 font-semibold text-gray-800">通知表</h3>
-        <ReportCardTable data={initial.reportCards} />
-      </div>
-      <div className="card">
         <h3 className="mb-2 font-semibold text-gray-800">定期試験</h3>
         <ExamTable data={initial.exams} />
+      </div>
+      <div className="card">
+        <h3 className="mb-2 font-semibold text-gray-800">通知表</h3>
+        <ReportCardTable data={initial.reportCards} />
       </div>
       <div className="card">
         <h3 className="mb-2 font-semibold text-gray-800">模試</h3>

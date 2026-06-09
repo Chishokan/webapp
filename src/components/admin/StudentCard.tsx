@@ -100,15 +100,15 @@ export function StudentCard({
         <Field label="漢検" value={student.kankenLevel} />
       </dl>
 
-      {/* 成績 */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div>
-          <p className="mb-1 text-xs font-medium text-gray-500">通知表</p>
-          <ReportCardTable data={student.reportCards} />
-        </div>
+      {/* 成績（定期試験 → 通知表 → 模試 の順で縦並び） */}
+      <div className="space-y-4">
         <div>
           <p className="mb-1 text-xs font-medium text-gray-500">定期試験</p>
           <ExamTable data={student.exams} />
+        </div>
+        <div>
+          <p className="mb-1 text-xs font-medium text-gray-500">通知表</p>
+          <ReportCardTable data={student.reportCards} />
         </div>
         <div>
           <p className="mb-1 text-xs font-medium text-gray-500">模試</p>
