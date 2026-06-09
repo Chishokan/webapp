@@ -11,42 +11,11 @@ import {
   MOCK_SUBJECTS,
   SUBJECT_OPTIONS,
 } from "@/lib/karte";
+import type { StudentEditorInitial } from "@/lib/student-form";
 
 type Campus = { id: string; name: string };
 
-export type StudentInitial = {
-  id: string;
-  name: string;
-  kana: string;
-  campusId: string;
-  grade: string; // "" | "1".."3"
-  school: string;
-  joinedAt: string; // yyyy-mm-dd
-  aspire: string;
-  dream: string;
-  club: string;
-  clubDays: string;
-  lessons: string;
-  lessonDays: string;
-  subjects: string[];
-  eikenLevel: string;
-  kankenLevel: string;
-  suikenLevel: string;
-  guardian: string;
-  notes: string;
-  reportCards: { term: string; subject: string; grade: number }[];
-  exams: { term: string; subject: string; score: number }[];
-  mockTests: {
-    term: string;
-    japanese: number | null;
-    math: number | null;
-    english: number | null;
-    science: number | null;
-    social: number | null;
-    fiveSubjectDev: number | null;
-  }[];
-  siblings: { name: string; school: string | null; status: string | null }[];
-};
+export type StudentInitial = StudentEditorInitial;
 
 const inputCell =
   "w-14 rounded border border-gray-200 px-1 py-0.5 text-center text-sm outline-none focus:border-brand-400";

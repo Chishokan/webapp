@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Campus = { id: string; name: string };
 
 const GRADES = [1, 2, 3];
+const STORAGE_KEY = "adminStudentFilters";
 
 export function StudentFilterBar({
   campuses,
@@ -21,12 +22,43 @@ export function StudentFilterBar({
   const [includeQuit, setIncludeQuit] = useState(current.includeQuit);
   const [showNew, setShowNew] = useState(false);
 
+  // URLに条件が無い状態で開いたら、前回の絞り込みを復元する
+  useEffect(() => {
+    const hasParams =
+      current.campus || current.grade || current.name || current.includeQuit;
+    if (hasParams) return;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const f = JSON.parse(saved) as typeof current;
+      if (f.campus || f.grade || f.name || f.includeQuit) {
+        setCampus(f.campus || "");
+        setGrade(f.grade || "");
+        setName(f.name || "");
+        setIncludeQuit(!!f.includeQuit);
+        applyFilters(f);
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function applyFilters(next?: Partial<{ campus: string; grade: string; name: string; includeQuit: boolean }>) {
-    const params = new URLSearchParams();
     const c = next?.campus ?? campus;
     const g = next?.grade ?? grade;
     const n = next?.name ?? name;
     const q = next?.includeQuit ?? includeQuit;
+    // 次回のために絞り込み条件を保存
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ campus: c, grade: g, name: n, includeQuit: q })
+      );
+    } catch {
+      /* ignore */
+    }
+    const params = new URLSearchParams();
     if (c) params.set("campus", c);
     if (g) params.set("grade", g);
     if (n) params.set("name", n);
