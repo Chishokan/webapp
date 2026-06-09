@@ -38,5 +38,5 @@ export async function POST(req: Request) {
     name: user.name,
     role: user.role,
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, role: user.role });
 }
