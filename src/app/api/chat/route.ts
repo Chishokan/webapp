@@ -57,11 +57,13 @@ export async function POST(req: Request) {
     const anthropic = getAnthropic();
     const completion = await anthropic.messages.create({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
+      max_tokens: 400,
       system:
         "あなたは「おはよう勉強会」の学習サポートAIです。学習者の質問や相談に、" +
-        "親しみやすく、簡潔で分かりやすい日本語で答えてください。" +
-        "勉強法・モチベーション・知識の質問など幅広くサポートします。",
+        "親しみやすい日本語で答えてください。" +
+        "回答はできるだけ短く・シンプルに。要点だけを2〜4文程度でまとめ、" +
+        "前置きや繰り返しは省きます。箇条書きが分かりやすい場合は3点までにとどめ、" +
+        "長文の解説は避けてください。",
       messages,
     });
 
