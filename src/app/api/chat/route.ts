@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
 import { getAnthropic, isAiConfigured, ANTHROPIC_MODEL } from "@/lib/anthropic";
+import { logChatToSheet } from "@/lib/chatlog";
 
 const schema = z.object({
   message: z.string().min(1, "メッセージを入力してください").max(4000),
@@ -31,12 +32,18 @@ export async function POST(req: Request) {
 
     const { message } = parsed.data;
 
-    // 直近の会話履歴（古い順）を取得
-    const history = await prisma.chatMessage.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
+    // 直近の会話履歴（古い順）とユーザー情報を取得
+    const [history, user] = await Promise.all([
+      prisma.chatMessage.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { loginId: true, name: true, grade: true, campus: true },
+      }),
+    ]);
     history.reverse();
 
     const messages = [
@@ -50,11 +57,13 @@ export async function POST(req: Request) {
     const anthropic = getAnthropic();
     const completion = await anthropic.messages.create({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
+      max_tokens: 400,
       system:
         "あなたは「おはよう勉強会」の学習サポートAIです。学習者の質問や相談に、" +
-        "親しみやすく、簡潔で分かりやすい日本語で答えてください。" +
-        "勉強法・モチベーション・知識の質問など幅広くサポートします。",
+        "親しみやすい日本語で答えてください。" +
+        "回答はできるだけ短く・シンプルに。要点だけを2〜4文程度でまとめ、" +
+        "前置きや繰り返しは省きます。箇条書きが分かりやすい場合は3点までにとどめ、" +
+        "長文の解説は避けてください。",
       messages,
     });
 
@@ -72,6 +81,16 @@ export async function POST(req: Request) {
         data: { userId, role: "assistant", content: reply },
       }),
     ]);
+
+    // スプレッドシート（GAS Webhook）へ会話ログを追記（設定時のみ・失敗しても無視）
+    await logChatToSheet({
+      loginId: user?.loginId ?? "",
+      name: user?.name ?? "",
+      grade: user?.grade ?? "",
+      campus: user?.campus ?? "",
+      userMessage: message,
+      aiReply: reply,
+    });
 
     return NextResponse.json({ reply });
   } catch (e) {
