@@ -16,12 +16,12 @@ $tomorrow = (new DateTime('now'))->modify('+1 day')->format('Y-m-d');
 $names = []; foreach (getSchools() as $s) $names[$s['id']] = $s['name'];
 
 $pdo = db();
-$st = $pdo->prepare("SELECT * FROM bookings WHERE slot_date=? AND status='confirmed' AND (reminder_sent IS NULL) AND email<>''");
+$st = $pdo->prepare("SELECT * FROM " . TBL_BOOKINGS . " WHERE slot_date=? AND status='confirmed' AND (reminder_sent IS NULL) AND email<>''");
 $st->execute([$tomorrow]);
 $rows = $st->fetchAll();
 
 $sent = 0; $errors = 0;
-$upd = $pdo->prepare('UPDATE bookings SET reminder_sent=? WHERE id=?');
+$upd = $pdo->prepare('UPDATE ' . TBL_BOOKINGS . ' SET reminder_sent=? WHERE id=?');
 foreach ($rows as $r) {
   $b = [
     'parentName' => $r['parent_name'],

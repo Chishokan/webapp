@@ -23,11 +23,19 @@ const MAIL_FROM_NAME = '面談予約システム';
 // 予約可能枠の締切(現在時刻から何分後以降を予約可能にするか)
 const BOOKING_CUTOFF_MINUTES = 60;
 
+// 同一ドメインで動く他アプリと混ざらないよう、このアプリ専用の
+// テーブル接頭辞とセッション名を使う(切り分け)。
+// 既存アプリと「同じDB」に同居させる場合は、接頭辞を付けると衝突しません。
+// 専用DBを使う場合は '' のままでOKです。
+const TABLE_PREFIX = '';            // 例: 同居させるなら 'yoyaku_'
+const SESSION_NAME = 'YOYAKU_SESSID'; // 他アプリのセッションと分離
+
 // ===== 基本設定(通常変更不要) =====
 date_default_timezone_set('Asia/Tokyo');
 mb_internal_encoding('UTF-8');
 mb_language('Japanese');
 
 if (session_status() === PHP_SESSION_NONE) {
+  session_name(SESSION_NAME);
   session_start();
 }

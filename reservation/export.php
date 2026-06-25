@@ -13,7 +13,7 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\
   http_response_code(400); echo '期間が不正です'; exit;
 }
 
-$st = db()->prepare("SELECT * FROM bookings WHERE school_id=? AND status<>'cancelled' AND slot_date BETWEEN ? AND ? ORDER BY slot_date, slot_time");
+$st = db()->prepare("SELECT * FROM " . TBL_BOOKINGS . " WHERE school_id=? AND status<>'cancelled' AND slot_date BETWEEN ? AND ? ORDER BY slot_date, slot_time");
 $st->execute([$schoolId, $start, $end]);
 
 $fname = '面談予約_' . $school['name'] . '_' . str_replace('-', '', $start) . '-' . str_replace('-', '', $end) . '.csv';

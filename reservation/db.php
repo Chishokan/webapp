@@ -1,6 +1,11 @@
 <?php
 require_once __DIR__ . '/config.php';
 
+// テーブル名(接頭辞つき)。専用DBなら TABLE_PREFIX='' でそのまま。
+define('TBL_SCHOOLS', TABLE_PREFIX . 'schools');
+define('TBL_SLOTS', TABLE_PREFIX . 'slots');
+define('TBL_BOOKINGS', TABLE_PREFIX . 'bookings');
+
 function db(): PDO {
   static $pdo = null;
   if ($pdo === null) {
@@ -16,12 +21,11 @@ function db(): PDO {
 
 /** 校舎一覧(表示順) */
 function getSchools(): array {
-  $rows = db()->query('SELECT id, name FROM schools ORDER BY sort_order, id')->fetchAll();
-  return $rows;
+  return db()->query('SELECT id, name FROM ' . TBL_SCHOOLS . ' ORDER BY sort_order, id')->fetchAll();
 }
 
 function findSchool(string $id): ?array {
-  $st = db()->prepare('SELECT id, name, notify_email FROM schools WHERE id = ?');
+  $st = db()->prepare('SELECT id, name, notify_email FROM ' . TBL_SCHOOLS . ' WHERE id = ?');
   $st->execute([$id]);
   $row = $st->fetch();
   return $row ?: null;
