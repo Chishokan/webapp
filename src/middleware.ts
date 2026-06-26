@@ -30,10 +30,15 @@ export async function middleware(req: NextRequest) {
     return withPathname(req);
   }
 
-  // 新・運営管理画面（/manage）: 専用セッションでガード
+  // 新・運営管理画面（/manage）: 管理セッション(admin) または 職員ロール(staff) でガード
   if (pathname.startsWith("/manage")) {
-    const payload = await verify(req.cookies.get(MANAGE_COOKIE)?.value);
-    if (payload?.kind === "manage") {
+    const manage = await verify(req.cookies.get(MANAGE_COOKIE)?.value);
+    if (manage?.kind === "manage") {
+      return withPathname(req);
+    }
+    const session = await verify(req.cookies.get(SESSION_COOKIE)?.value);
+    const role = session?.role as string | undefined;
+    if (role === "TEACHER" || role === "SUPER_ADMIN") {
       return withPathname(req);
     }
     return NextResponse.redirect(new URL("/manage-login", req.url));

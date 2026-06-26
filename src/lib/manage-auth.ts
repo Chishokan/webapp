@@ -9,6 +9,7 @@
 
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
+import { getSession, isStaffRole } from "./auth";
 
 export const MANAGE_COOKIE = "ohayou_manage";
 const ALG = "HS256";
@@ -66,6 +67,26 @@ export async function isManageAuthed(): Promise<boolean> {
   }
 }
 
+// 管理画面へのアクセス権。
+//  - isAdmin: ohayou-admin（環境変数の管理ID）でログイン。生徒・職員の登録ができる。
+//  - staff:   TEACHER/SUPER_ADMIN ロールのユーザーでログイン。閲覧のみ。
+export type ManageAccess = {
+  ok: boolean;
+  isAdmin: boolean;
+  name: string | null;
+};
+
+export async function getManageAccess(): Promise<ManageAccess> {
+  if (await isManageAuthed()) {
+    return { ok: true, isAdmin: true, name: "管理者" };
+  }
+  const session = await getSession();
+  if (session && isStaffRole(session.role)) {
+    return { ok: true, isAdmin: false, name: session.name };
+  }
+  return { ok: false, isAdmin: false, name: null };
+}
+
 export class ManageUnauthorizedError extends Error {
   constructor() {
     super("管理ログインが必要です");
@@ -73,9 +94,20 @@ export class ManageUnauthorizedError extends Error {
   }
 }
 
-/** 管理API用: 未認証なら例外を投げる */
-export async function requireManage(): Promise<void> {
-  if (!(await isManageAuthed())) {
-    throw new ManageUnauthorizedError();
+export class ManageForbiddenError extends Error {
+  constructor() {
+    super("この操作は管理者(admin)のみ実行できます");
+    this.name = "ManageForbiddenError";
   }
+}
+
+/** 管理API用: admin または staff でなければ例外 */
+export async function requireManage(): Promise<void> {
+  const { ok } = await getManageAccess();
+  if (!ok) throw new ManageUnauthorizedError();
+}
+
+/** 登録系API用: admin(ohayou-admin) でなければ例外 */
+export async function requireManageAdmin(): Promise<void> {
+  if (!(await isManageAuthed())) throw new ManageForbiddenError();
 }

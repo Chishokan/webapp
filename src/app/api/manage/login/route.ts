@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import { createSession, isStaffRole } from "@/lib/auth";
 import {
   verifyManageCredentials,
   createManageSession,
@@ -7,21 +10,11 @@ import {
 } from "@/lib/manage-auth";
 
 const schema = z.object({
-  id: z.string().min(1, "管理IDを入力してください"),
+  id: z.string().min(1, "IDを入力してください"),
   password: z.string().min(1, "パスワードを入力してください"),
 });
 
 export async function POST(req: Request) {
-  if (!isManageConfigured()) {
-    return NextResponse.json(
-      {
-        error:
-          "管理ログインが未設定です。環境変数 OHAYOU_ADMIN_PASSWORD を設定してください。",
-      },
-      { status: 503 }
-    );
-  }
-
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -32,13 +25,33 @@ export async function POST(req: Request) {
   }
 
   const { id, password } = parsed.data;
-  if (!verifyManageCredentials(id, password)) {
-    return NextResponse.json(
-      { error: "ログイン情報が正しくありません" },
-      { status: 401 }
-    );
+
+  // 1) admin（ohayou-admin = 環境変数の管理ID）
+  if (isManageConfigured() && verifyManageCredentials(id, password)) {
+    await createManageSession();
+    return NextResponse.json({ ok: true, role: "ADMIN" });
   }
 
-  await createManageSession();
-  return NextResponse.json({ ok: true });
+  // 2) staff（TEACHER / SUPER_ADMIN ロールのユーザー）
+  const user = await prisma.user.findFirst({
+    where: { OR: [{ loginId: id }, { email: id }] },
+  });
+  if (
+    user &&
+    isStaffRole(user.role) &&
+    (await bcrypt.compare(password, user.passwordHash))
+  ) {
+    await createSession({
+      userId: user.id,
+      loginId: user.loginId,
+      name: user.name,
+      role: user.role,
+    });
+    return NextResponse.json({ ok: true, role: user.role });
+  }
+
+  return NextResponse.json(
+    { error: "ログイン情報が正しくありません" },
+    { status: 401 }
+  );
 }

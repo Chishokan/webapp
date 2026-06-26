@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const tabs = [
+const baseTabs = [
   { href: "/manage", label: "ダッシュボード" },
   { href: "/manage/participants", label: "参加者" },
   { href: "/manage/reflections", label: "リフレクション一覧" },
 ];
 
-export function ManageNav() {
+export function ManageNav({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
+  const tabs = isAdmin
+    ? [...baseTabs, { href: "/manage/register", label: "ユーザー登録" }]
+    : baseTabs;
   return (
     <nav className="flex flex-wrap gap-1 border-b border-gray-200 pb-2">
       {tabs.map((t) => {

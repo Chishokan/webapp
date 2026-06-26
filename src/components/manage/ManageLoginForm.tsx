@@ -40,21 +40,22 @@ export function ManageLoginForm({ configured }: { configured: boolean }) {
       <div className="card">
         <h1 className="mb-1 text-2xl font-bold text-brand-700">管理ログイン</h1>
         <p className="mb-6 text-sm text-gray-500">
-          おはよう勉強会の運営管理用です。管理IDとパスワードを入力してください。
+          おはよう勉強会の運営管理用です。管理ID（または職員ID／メール）と
+          パスワードを入力してください。
         </p>
 
         {!configured && (
           <p className="mb-4 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
-            管理ログインが未設定です。環境変数{" "}
+            admin（ohayou-admin）でのログインは未設定です。環境変数{" "}
             <code className="rounded bg-yellow-100 px-1">OHAYOU_ADMIN_PASSWORD</code>{" "}
-            を設定してください。
+            を設定してください。職員アカウントでのログインは利用できます。
           </p>
         )}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="label" htmlFor="id">
-              管理ID
+              管理ID / 職員ID・メール
             </label>
             <input
               id="id"
