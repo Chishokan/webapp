@@ -8,6 +8,7 @@ import {
   createManageSession,
   isManageConfigured,
 } from "@/lib/manage-auth";
+import { logToSheet } from "@/lib/sheet-log";
 
 const schema = z.object({
   id: z.string().min(1, "IDを入力してください"),
@@ -29,6 +30,13 @@ export async function POST(req: Request) {
   // 1) admin（ohayou-admin = 環境変数の管理ID）
   if (isManageConfigured() && verifyManageCredentials(id, password)) {
     await createManageSession();
+    await logToSheet("account", {
+      action: "login",
+      loginId: id,
+      name: "管理者",
+      role: "ADMIN",
+      detail: "manage",
+    });
     return NextResponse.json({ ok: true, role: "ADMIN" });
   }
 
@@ -46,6 +54,13 @@ export async function POST(req: Request) {
       loginId: user.loginId,
       name: user.name,
       role: user.role,
+    });
+    await logToSheet("account", {
+      action: "login",
+      loginId: user.loginId,
+      name: user.name,
+      role: user.role,
+      detail: "manage",
     });
     return NextResponse.json({ ok: true, role: user.role });
   }

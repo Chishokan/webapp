@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
 import { getOrCreateTodaySession } from "@/lib/study-session";
 import { isEnrolled } from "@/lib/enrollment";
+import { logToSheet } from "@/lib/sheet-log";
 
 const schema = z.object({
   learned: z.string().min(1, "学んだことを入力してください").max(2000),
@@ -43,6 +44,21 @@ export async function POST(req: Request) {
         next: next || null,
         mood: mood ?? null,
       },
+    });
+
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { loginId: true, name: true, grade: true, campus: true },
+    });
+    await logToSheet("reflection", {
+      loginId: u?.loginId ?? "",
+      name: u?.name ?? "",
+      grade: u?.grade ?? "",
+      campus: u?.campus ?? "",
+      learned,
+      good: good || "",
+      next: next || "",
+      mood: mood ?? "",
     });
 
     return NextResponse.json({ ok: true, id: reflection.id });

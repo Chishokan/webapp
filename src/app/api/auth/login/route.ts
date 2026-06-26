@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
+import { logToSheet } from "@/lib/sheet-log";
 
 const schema = z.object({
   identifier: z.string().min(1, "ログインIDまたはメールアドレスを入力してください"),
@@ -37,6 +38,13 @@ export async function POST(req: Request) {
     loginId: user.loginId,
     name: user.name,
     role: user.role,
+  });
+  await logToSheet("account", {
+    action: "login",
+    loginId: user.loginId,
+    name: user.name,
+    role: user.role,
+    detail: "app",
   });
   return NextResponse.json({ ok: true, role: user.role });
 }

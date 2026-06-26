@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
 import { getAnthropic, isAiConfigured, ANTHROPIC_MODEL } from "@/lib/anthropic";
-import { logChatToSheet } from "@/lib/chatlog";
+import { logToSheet } from "@/lib/sheet-log";
 
 const schema = z.object({
   message: z.string().min(1, "メッセージを入力してください").max(4000),
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
     ]);
 
     // スプレッドシート（GAS Webhook）へ会話ログを追記（設定時のみ・失敗しても無視）
-    await logChatToSheet({
+    await logToSheet("chatlog", {
       loginId: user?.loginId ?? "",
       name: user?.name ?? "",
       grade: user?.grade ?? "",

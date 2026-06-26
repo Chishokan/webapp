@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireManageAdmin, ManageForbiddenError } from "@/lib/manage-auth";
+import { logToSheet } from "@/lib/sheet-log";
 
 const schema = z.object({
   type: z.enum(["student", "staff"]),
@@ -57,6 +58,14 @@ export async function POST(req: Request) {
         data: { userId: user.id, source: "ADMIN_SELECT" },
       });
     }
+
+    await logToSheet("account", {
+      action: "register_user",
+      loginId: user.loginId,
+      name: user.name,
+      role: isStaff ? "TEACHER" : "STUDENT",
+      detail: isStaff ? "職員登録" : enroll ? "生徒登録(参加登録あり)" : "生徒登録",
+    });
 
     return NextResponse.json({ ok: true, id: user.id });
   } catch (e) {

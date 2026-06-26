@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
 import { getAnthropic, isAiConfigured, ANTHROPIC_MODEL } from "@/lib/anthropic";
 import { CHISHOKAN_POLICY } from "@/lib/chishokan";
+import { logToSheet } from "@/lib/sheet-log";
 
 // 学習履歴をもとに AI が学習アドバイスを生成する（③AIによる学習アドバイス）
 export async function POST() {
@@ -16,7 +17,7 @@ export async function POST() {
       );
     }
 
-    const [attendances, reflections, student] = await Promise.all([
+    const [attendances, reflections, student, appUser] = await Promise.all([
       prisma.attendance.findMany({
         where: { userId },
         include: { session: true },
@@ -34,6 +35,10 @@ export async function POST() {
         include: {
           interviews: { orderBy: { createdAt: "desc" }, take: 10 },
         },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { loginId: true, name: true, grade: true, campus: true },
       }),
     ]);
 
@@ -128,6 +133,14 @@ export async function POST() {
         data: { studentId: student.id, advice, source: "STUDENT_APP" },
       });
     }
+
+    await logToSheet("advice", {
+      loginId: appUser?.loginId ?? "",
+      name: appUser?.name ?? "",
+      grade: appUser?.grade ?? "",
+      campus: appUser?.campus ?? "",
+      advice,
+    });
 
     return NextResponse.json({ advice });
   } catch (e) {

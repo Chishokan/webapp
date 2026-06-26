@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
 import { getOrCreateTodaySession } from "@/lib/study-session";
 import { isEnrolled } from "@/lib/enrollment";
+import { logToSheet } from "@/lib/sheet-log";
 
 // 今日の出席を記録する（①Zoomへの出席）
 export async function POST() {
@@ -16,11 +17,30 @@ export async function POST() {
     }
     const session = await getOrCreateTodaySession();
 
+    const existing = await prisma.attendance.findUnique({
+      where: { userId_sessionId: { userId, sessionId: session.id } },
+    });
+
     const attendance = await prisma.attendance.upsert({
       where: { userId_sessionId: { userId, sessionId: session.id } },
       create: { userId, sessionId: session.id },
       update: {},
     });
+
+    // 初回出席時のみスプレッドシートへ記録
+    if (!existing) {
+      const u = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { loginId: true, name: true, grade: true, campus: true },
+      });
+      await logToSheet("attendance", {
+        loginId: u?.loginId ?? "",
+        name: u?.name ?? "",
+        grade: u?.grade ?? "",
+        campus: u?.campus ?? "",
+        session: session.title,
+      });
+    }
 
     return NextResponse.json({
       ok: true,

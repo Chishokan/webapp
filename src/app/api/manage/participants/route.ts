@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireManage, ManageUnauthorizedError } from "@/lib/manage-auth";
+import { logToSheet } from "@/lib/sheet-log";
 
 const schema = z.object({ userId: z.string().min(1) });
 
@@ -21,6 +22,17 @@ export async function POST(req: Request) {
       where: { userId: parsed.data.userId },
       update: {},
       create: { userId: parsed.data.userId, source: "ADMIN_SELECT" },
+    });
+    const u = await prisma.user.findUnique({
+      where: { id: parsed.data.userId },
+      select: { loginId: true, name: true },
+    });
+    await logToSheet("account", {
+      action: "enroll",
+      loginId: u?.loginId ?? "",
+      name: u?.name ?? "",
+      role: "STUDENT",
+      detail: "塾生から参加登録",
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
