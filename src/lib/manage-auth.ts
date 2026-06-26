@@ -65,3 +65,17 @@ export async function isManageAuthed(): Promise<boolean> {
     return false;
   }
 }
+
+export class ManageUnauthorizedError extends Error {
+  constructor() {
+    super("管理ログインが必要です");
+    this.name = "ManageUnauthorizedError";
+  }
+}
+
+/** 管理API用: 未認証なら例外を投げる */
+export async function requireManage(): Promise<void> {
+  if (!(await isManageAuthed())) {
+    throw new ManageUnauthorizedError();
+  }
+}

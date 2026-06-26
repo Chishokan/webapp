@@ -3,10 +3,21 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateTodaySession } from "@/lib/study-session";
 import { ReflectionForm } from "@/components/ReflectionForm";
+import { EnrollNotice } from "@/components/EnrollNotice";
+import { isEnrolled } from "@/lib/enrollment";
 
 export default async function ReflectionPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  if (!(await isEnrolled(user.id))) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6">
+        <h1 className="text-2xl font-bold text-gray-800">② リフレクション</h1>
+        <EnrollNotice />
+      </div>
+    );
+  }
 
   const today = await getOrCreateTodaySession();
   const existing = await prisma.reflection.findMany({

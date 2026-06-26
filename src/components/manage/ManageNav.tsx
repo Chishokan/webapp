@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const tabs = [
   { href: "/manage", label: "ダッシュボード" },
+  { href: "/manage/participants", label: "参加者" },
   { href: "/manage/reflections", label: "リフレクション一覧" },
 ];
 

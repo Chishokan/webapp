@@ -28,6 +28,22 @@ model User {
 
   studentProfile Student? // role=STUDENT のときのみ
   teacherProfile Teacher? // role=TEACHER / SUPER_ADMIN のときのみ
+  enrollment     Enrollment? // おはよう勉強会への参加登録（あれば参加者）
+}
+
+// おはよう勉強会の参加登録（申込ベース管理）。
+// このレコードがあるユーザーのみ「参加者」として扱い、出席・リフレクションを利用できる。
+model Enrollment {
+  id        String           @id @default(cuid())
+  userId    String           @unique
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source    EnrollmentSource @default(ADMIN_SELECT)
+  createdAt DateTime         @default(now())
+}
+
+enum EnrollmentSource {
+  ADMIN_SELECT // 塾生から管理画面で選択登録
+  FORM_IMPORT // 申込フォームからCSV一括取込
 }
 
 enum Role {

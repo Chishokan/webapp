@@ -11,8 +11,17 @@ export default async function ManageDashboardPage() {
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const today = await getOrCreateTodaySession();
 
+  // 参加登録済みのユーザーのみを集計対象にする（申込ベース管理）
+  const enrollments = await prisma.enrollment.findMany({
+    include: {
+      user: { select: { id: true, name: true, grade: true, campus: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  const students = enrollments.map((e) => e.user);
+  const ids = students.map((s) => s.id);
+
   const [
-    students,
     todayAttendCount,
     totalAttendance,
     totalReflections,
@@ -21,28 +30,25 @@ export default async function ManageDashboardPage() {
     attend30,
     mood30,
   ] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: "STUDENT" },
-      select: { id: true, name: true, grade: true, campus: true },
-      orderBy: { createdAt: "asc" },
+    prisma.attendance.count({
+      where: { sessionId: today.id, userId: { in: ids } },
     }),
-    prisma.attendance.count({ where: { sessionId: today.id } }),
-    prisma.attendance.count(),
-    prisma.reflection.count(),
+    prisma.attendance.count({ where: { userId: { in: ids } } }),
+    prisma.reflection.count({ where: { userId: { in: ids } } }),
     prisma.reflection.aggregate({
-      where: { mood: { not: null } },
+      where: { mood: { not: null }, userId: { in: ids } },
       _avg: { mood: true },
       _count: { mood: true },
     }),
     prisma.session.count({ where: { date: { gte: since } } }),
     prisma.attendance.groupBy({
       by: ["userId"],
-      where: { joinedAt: { gte: since } },
+      where: { joinedAt: { gte: since }, userId: { in: ids } },
       _count: { _all: true },
     }),
     prisma.reflection.groupBy({
       by: ["userId"],
-      where: { createdAt: { gte: since }, mood: { not: null } },
+      where: { createdAt: { gte: since }, mood: { not: null }, userId: { in: ids } },
       _avg: { mood: true },
       _count: { _all: true },
     }),
@@ -85,7 +91,7 @@ export default async function ManageDashboardPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="card text-center">
           <p className="text-3xl font-bold text-brand-600">{studentCount}</p>
-          <p className="text-sm text-gray-500">生徒数</p>
+          <p className="text-sm text-gray-500">参加者数</p>
         </div>
         <div className="card text-center">
           <p className="text-3xl font-bold text-brand-600">

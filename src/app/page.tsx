@@ -6,6 +6,8 @@ import { getOrCreateTodaySession } from "@/lib/study-session";
 import { isAiConfigured } from "@/lib/anthropic";
 import { ChatBox } from "@/components/ChatBox";
 import { AdvicePanel } from "@/components/AdvicePanel";
+import { EnrollNotice } from "@/components/EnrollNotice";
+import { isEnrolled } from "@/lib/enrollment";
 
 function greeting(): string {
   // JST(UTC+9)の時刻で挨拶を切り替える
@@ -44,6 +46,7 @@ export default async function HomePage() {
   ]);
 
   const aiEnabled = isAiConfigured();
+  const enrolled = await isEnrolled(user.id);
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -64,7 +67,10 @@ export default async function HomePage() {
           <p className="mt-1 text-gray-500">{today.title}</p>
         </div>
 
-        {/* 今日のアクション */}
+        {/* 今日のアクション（参加登録済みのみ） */}
+        {!enrolled ? (
+          <EnrollNotice />
+        ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="card">
             <div className="mb-2 flex items-center justify-between">
@@ -108,6 +114,7 @@ export default async function HomePage() {
             </Link>
           </div>
         </div>
+        )}
 
         {/* ③ AI学習アドバイス（ダッシュボードでも表示） */}
         <AdvicePanel />

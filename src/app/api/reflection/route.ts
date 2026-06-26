@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
 import { getOrCreateTodaySession } from "@/lib/study-session";
+import { isEnrolled } from "@/lib/enrollment";
 
 const schema = z.object({
   learned: z.string().min(1, "学んだことを入力してください").max(2000),
@@ -15,6 +16,12 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const userId = await requireUserId();
+    if (!(await isEnrolled(userId))) {
+      return NextResponse.json(
+        { error: "おはよう勉強会への参加申込が必要です。" },
+        { status: 403 }
+      );
+    }
     const body = await req.json().catch(() => null);
     const parsed = schema.safeParse(body);
     if (!parsed.success) {

@@ -4,10 +4,21 @@ import { prisma } from "@/lib/prisma";
 import { getOrCreateTodaySession } from "@/lib/study-session";
 import { ZOOM_URL } from "@/lib/config";
 import { AttendanceButton } from "@/components/AttendanceButton";
+import { EnrollNotice } from "@/components/EnrollNotice";
+import { isEnrolled } from "@/lib/enrollment";
 
 export default async function AttendancePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  if (!(await isEnrolled(user.id))) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6">
+        <h1 className="text-2xl font-bold text-gray-800">① 出席する</h1>
+        <EnrollNotice />
+      </div>
+    );
+  }
 
   const today = await getOrCreateTodaySession();
   const attendance = await prisma.attendance.findUnique({

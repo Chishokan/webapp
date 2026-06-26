@@ -48,6 +48,39 @@ async function main() {
     create: { userId: admin.id, displayName: SUPER_ADMIN.name },
   });
   console.log(`✓ super_admin: ${SUPER_ADMIN.email}`);
+
+  // 既存のアクティブ参加者を自動で参加登録（出席 or リフレクション実績のある STUDENT）。
+  // 申込ベース管理への移行で、現在利用中のユーザーがロックアウトされないようにするための一度きりのバックフィル。
+  const activeIds = new Set<string>();
+  for (const a of await prisma.attendance.findMany({
+    select: { userId: true },
+    distinct: ["userId"],
+  }))
+    activeIds.add(a.userId);
+  for (const r of await prisma.reflection.findMany({
+    select: { userId: true },
+    distinct: ["userId"],
+  }))
+    activeIds.add(r.userId);
+
+  let backfilled = 0;
+  for (const userId of activeIds) {
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!u || u.role !== "STUDENT") continue;
+    const existing = await prisma.enrollment.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (existing) continue;
+    await prisma.enrollment.create({
+      data: { userId, source: "ADMIN_SELECT" },
+    });
+    backfilled++;
+  }
+  console.log(`✓ 参加登録バックフィル: ${backfilled}名`);
 }
 
 main()
