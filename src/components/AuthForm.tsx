@@ -188,12 +188,6 @@ export function AuthForm({
                   新規登録
                 </Link>
               </p>
-              <p>
-                職員の方は{" "}
-                <Link href="/staff-login" className="text-brand-600 underline">
-                  職員ログイン
-                </Link>
-              </p>
             </>
           )}
           {isStaff && (
