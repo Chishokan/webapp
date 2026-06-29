@@ -44,19 +44,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/manage-login", req.url));
   }
 
-  // 旧・職員管理（/admin）: 別アプリへ移行のため既定で非表示。
-  // 復活させたい場合は環境変数 ENABLE_LEGACY_ADMIN=true を設定する。
+  // 学習記録・面談管理（/admin）: 専用ログイン(/records-login)からの職員のみ。
+  // 一般導線には出さず、職員(TEACHER/SUPER_ADMIN)セッションでのみアクセス可。
   if (pathname.startsWith("/admin")) {
-    if (process.env.ENABLE_LEGACY_ADMIN !== "true") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
     const payload = await verify(req.cookies.get(SESSION_COOKIE)?.value);
-    if (!payload) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-    const role = payload.role as string | undefined;
+    const role = payload?.role as string | undefined;
     if (role === "TEACHER" || role === "SUPER_ADMIN") {
       return NextResponse.next();
+    }
+    if (!payload) {
+      return NextResponse.redirect(new URL("/records-login", req.url));
     }
     return NextResponse.redirect(new URL("/", req.url));
   }
