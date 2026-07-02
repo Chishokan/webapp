@@ -84,9 +84,19 @@ export function ParticipantsManager({
     <div className="space-y-6">
       {/* 参加者一覧 */}
       <div className="card">
-        <h2 className="mb-3 font-semibold text-gray-800">
-          参加者一覧（{enrolled.length}名）
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="font-semibold text-gray-800">
+            参加者一覧（{enrolled.length}名）
+          </h2>
+          {enrolled.length > 0 && (
+            <a
+              href="/api/manage/participants/export"
+              className="rounded-md border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50"
+            >
+              CSV出力
+            </a>
+          )}
+        </div>
         {enrolled.length === 0 ? (
           <p className="text-sm text-gray-400">
             まだ参加者がいません。下から塾生を追加するか、CSVを取り込んでください。
